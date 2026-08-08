@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 28,
     alignItems: 'center',
-    justify.content: 'center',
+    justifyContent: 'center',
   },
   homeButtonText: {
     color: '#121212',
