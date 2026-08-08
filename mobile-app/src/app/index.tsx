@@ -5,6 +5,7 @@ import { ArrowRight, UserCheck, ShieldAlert, TrendingUp, Clock } from 'lucide-re
 import { useApp } from '../context/AppContext';
 import { GlassCard } from '../components/GlassCard';
 import { AnimatedTrustPlant } from '../components/AnimatedTrustPlant';
+import { FadeInView, PulseView } from '../components/AnimatedContainers';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -29,10 +30,10 @@ export default function HomeScreen() {
       showsVerticalScrollIndicator={false}
     >
       {/* Hero */}
-      <View style={styles.heroSection}>
-        <View style={[styles.plantContainer, { backgroundColor: `${colors.primary}12`, borderColor: colors.border }]}>
+      <FadeInView delay={100} fromY={30} style={styles.heroSection}>
+        <PulseView style={[styles.plantContainer, { backgroundColor: `${colors.primary}12`, borderColor: colors.border }]}>
           <AnimatedTrustPlant stage={0} size={150} />
-        </View>
+        </PulseView>
 
         <Text style={[styles.greeting, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
           {greeting}
@@ -43,37 +44,41 @@ export default function HomeScreen() {
         <Text style={[styles.subtitle, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
           Complete your KYC verification to unlock full banking capabilities and watch your Trust Plant bloom.
         </Text>
-      </View>
+      </FadeInView>
 
       {/* Feature Cards */}
       <View style={styles.cardGrid}>
-        <GlassCard style={styles.featureCard}>
-          <View style={[styles.featureIconBg, { backgroundColor: colors.primarySurface }]}>
-            <UserCheck size={22} color={colors.primaryDark} strokeWidth={2.2} />
-          </View>
-          <Text style={[styles.featureTitle, { color: colors.text, fontFamily: colors.headlineFont }]}>
-            Smart KYC
-          </Text>
-          <Text style={[styles.featureSub, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
-            AI-powered identity verification
-          </Text>
-        </GlassCard>
+        <FadeInView delay={250} fromY={20} style={{ flex: 1 }}>
+          <GlassCard style={styles.featureCard}>
+            <View style={[styles.featureIconBg, { backgroundColor: colors.primarySurface }]}>
+              <UserCheck size={22} color={colors.primaryDark} strokeWidth={2.2} />
+            </View>
+            <Text style={[styles.featureTitle, { color: colors.text, fontFamily: colors.headlineFont }]}>
+              Smart KYC
+            </Text>
+            <Text style={[styles.featureSub, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
+              AI-powered identity verification
+            </Text>
+          </GlassCard>
+        </FadeInView>
 
-        <GlassCard style={styles.featureCard}>
-          <View style={[styles.featureIconBg, { backgroundColor: colors.riskHighSurface }]}>
-            <ShieldAlert size={22} color={colors.riskHigh} strokeWidth={2.2} />
-          </View>
-          <Text style={[styles.featureTitle, { color: colors.text, fontFamily: colors.headlineFont }]}>
-            Risk Shield
-          </Text>
-          <Text style={[styles.featureSub, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
-            Real-time compliance checks
-          </Text>
-        </GlassCard>
+        <FadeInView delay={350} fromY={20} style={{ flex: 1 }}>
+          <GlassCard style={styles.featureCard}>
+            <View style={[styles.featureIconBg, { backgroundColor: colors.riskHighSurface }]}>
+              <ShieldAlert size={22} color={colors.riskHigh} strokeWidth={2.2} />
+            </View>
+            <Text style={[styles.featureTitle, { color: colors.text, fontFamily: colors.headlineFont }]}>
+              Risk Shield
+            </Text>
+            <Text style={[styles.featureSub, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
+              Real-time compliance checks
+            </Text>
+          </GlassCard>
+        </FadeInView>
       </View>
 
       {/* Stats Row */}
-      <View style={styles.statsRow}>
+      <FadeInView delay={450} fromY={15} style={styles.statsRow}>
         <View style={[styles.statPill, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <TrendingUp size={14} color={colors.riskLow} />
           <Text style={[styles.statPillText, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
@@ -86,10 +91,10 @@ export default function HomeScreen() {
             <Text style={[styles.statPillNum, { color: colors.primary, fontFamily: colors.bodyFontBold }]}>&lt;2 min</Text> Avg. Review
           </Text>
         </View>
-      </View>
+      </FadeInView>
 
       {/* CTA Buttons */}
-      <View style={styles.buttonStack}>
+      <FadeInView delay={550} fromY={10} style={styles.buttonStack}>
         <TouchableOpacity
           style={[styles.primaryButton, { backgroundColor: colors.primary }]}
           onPress={() => router.push('/applicant-form')}
@@ -112,7 +117,7 @@ export default function HomeScreen() {
             </Text>
           </TouchableOpacity>
         )}
-      </View>
+      </FadeInView>
     </ScrollView>
   );
 }
@@ -163,7 +168,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   featureCard: {
-    flex: 1,
     gap: 10,
     padding: 18,
   },
