@@ -1,10 +1,17 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Shield, Moon, Sun } from 'lucide-react-native';
+import { Shield, Moon, Sun, LogOut } from 'lucide-react-native';
 import { useApp } from '../context/AppContext';
+import { useRouter } from 'expo-router';
 
 export const Header: React.FC = () => {
-  const { isDarkMode, toggleTheme, isOfficerMode, toggleRole, colors } = useApp();
+  const { isDarkMode, toggleTheme, isOfficerMode, toggleRole, user, logout, colors } = useApp();
+  const router = useRouter();
+
+  const handleLogout = () => {
+    logout();
+    router.replace('/login');
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
@@ -12,19 +19,21 @@ export const Header: React.FC = () => {
         <View style={[styles.logoBadge, { backgroundColor: colors.primary }]}>
           <Shield size={18} color="#121212" strokeWidth={2.5} />
         </View>
-        <Text style={[styles.title, { color: colors.text }]}>TrustLens</Text>
+        <Text style={[styles.title, { color: colors.text, fontFamily: colors.headlineFont }]}>TrustLens</Text>
       </View>
 
       <View style={styles.actionRow}>
-        <TouchableOpacity
-          style={[styles.roleBadge, { backgroundColor: colors.surface, borderColor: colors.border }]}
-          onPress={toggleRole}
-          activeOpacity={0.7}>
-          <View style={[styles.roleDot, { backgroundColor: colors.primary }]} />
-          <Text style={[styles.roleText, { color: colors.primary }]}>
-            {isOfficerMode ? 'OFFICER MODE' : 'APPLICANT MODE'}
-          </Text>
-        </TouchableOpacity>
+        {user && (
+          <TouchableOpacity
+            style={[styles.roleBadge, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            onPress={toggleRole}
+            activeOpacity={0.7}>
+            <View style={[styles.roleDot, { backgroundColor: colors.primary }]} />
+            <Text style={[styles.roleText, { color: colors.primary, fontFamily: colors.bodyFontBold }]}>
+              {isOfficerMode ? 'OFFICER MODE' : 'APPLICANT MODE'}
+            </Text>
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity
           style={[styles.themeButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
@@ -36,6 +45,15 @@ export const Header: React.FC = () => {
             <Sun size={18} color={colors.primary} />
           )}
         </TouchableOpacity>
+
+        {user && (
+          <TouchableOpacity
+            style={[styles.logoutButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            onPress={handleLogout}
+            activeOpacity={0.7}>
+            <LogOut size={16} color={colors.errorRed} />
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -64,7 +82,6 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 20,
-    fontWeight: '700',
     letterSpacing: -0.5,
   },
   actionRow: {
@@ -88,10 +105,17 @@ const styles = StyleSheet.create({
   },
   roleText: {
     fontSize: 10,
-    fontWeight: '700',
     letterSpacing: 1,
   },
   themeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoutButton: {
     width: 36,
     height: 36,
     borderRadius: 18,

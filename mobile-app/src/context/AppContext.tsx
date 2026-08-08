@@ -2,6 +2,27 @@ import React, { createContext, useContext, useState } from 'react';
 import { Applicant, RiskLevel } from '../types';
 import { Palette } from '../constants/Palette';
 
+export interface UserSession {
+  email: string;
+  role: 'applicant' | 'admin';
+  name: string;
+}
+
+export const HARDCODED_USERS = {
+  applicant: {
+    email: 'applicant@trustlens.com',
+    password: 'password123',
+    role: 'applicant' as const,
+    name: 'Amina Bibi',
+  },
+  admin: {
+    email: 'admin@trustlens.com',
+    password: 'admin123',
+    role: 'admin' as const,
+    name: 'Compliance Admin Officer',
+  },
+};
+
 export const mockApplicants: Applicant[] = [
   {
     id: '1',
@@ -56,6 +77,9 @@ export const mockApplicants: Applicant[] = [
 interface AppContextType {
   isDarkMode: boolean;
   toggleTheme: () => void;
+  user: UserSession | null;
+  login: (email: string, pass: string) => { success: boolean; error?: string };
+  logout: () => void;
   isOfficerMode: boolean;
   toggleRole: () => void;
   applicants: Applicant[];
@@ -66,6 +90,7 @@ interface AppContextType {
   colors: {
     background: string;
     surface: string;
+    surfaceElevated: string;
     text: string;
     bodyText: string;
     neutral: string;
@@ -86,6 +111,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isDarkMode, setIsDarkMode] = useState(true);
+  const [user, setUser] = useState<UserSession | null>(null);
   const [isOfficerMode, setIsOfficerMode] = useState(false);
   const [applicants, setApplicants] = useState<Applicant[]>(mockApplicants);
   const [currentApplicantForm, setCurrentApplicantForm] = useState<Record<string, string>>({});
@@ -93,6 +119,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const toggleTheme = () => setIsDarkMode((prev) => !prev);
   const toggleRole = () => setIsOfficerMode((prev) => !prev);
+
+  const login = (email: string, pass: string) => {
+    const trimmedEmail = email.trim().toLowerCase();
+
+    if (
+      trimmedEmail === HARDCODED_USERS.applicant.email &&
+      pass === HARDCODED_USERS.applicant.password
+    ) {
+      const session: UserSession = {
+        email: HARDCODED_USERS.applicant.email,
+        role: 'applicant',
+        name: HARDCODED_USERS.applicant.name,
+      };
+      setUser(session);
+      setIsOfficerMode(false);
+      return { success: true };
+    } else if (
+      trimmedEmail === HARDCODED_USERS.admin.email &&
+      pass === HARDCODED_USERS.admin.password
+    ) {
+      const session: UserSession = {
+        email: HARDCODED_USERS.admin.email,
+        role: 'admin',
+        name: HARDCODED_USERS.admin.name,
+      };
+      setUser(session);
+      setIsOfficerMode(true);
+      return { success: true };
+    }
+
+    return { success: false, error: 'Invalid email or password' };
+  };
+
+  const logout = () => {
+    setUser(null);
+  };
 
   const submitApplicantForm = (form: Record<string, string>) => {
     setCurrentApplicantForm(form);
@@ -119,16 +181,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const colors = {
     background: palette.background,
     surface: palette.surface,
-    text: isDarkMode ? palette.text! : palette.secondary!,
-    bodyText: isDarkMode ? palette.bodyText! : palette.neutral!,
+    surfaceElevated: palette.surfaceElevated,
+    text: isDarkMode ? palette.text : palette.secondary,
+    bodyText: isDarkMode ? palette.bodyText : palette.neutral,
     neutral: palette.neutral,
     primary: palette.primary,
     secondary: palette.secondary,
     border: palette.surfaceBorder,
     errorRed: palette.errorRed,
     leafGreen: palette.leafGreen,
-    softCoral: palette.softCoral!,
-    warningOrange: isDarkMode ? palette.secondary! : palette.accentOrange!,
+    softCoral: palette.softCoral,
+    warningOrange: isDarkMode ? palette.secondary : palette.accentOrange,
     headlineFont: palette.headlineFont,
     bodyFont: palette.bodyFont,
     bodyFontBold: palette.bodyFontBold,
@@ -139,6 +202,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       value={{
         isDarkMode,
         toggleTheme,
+        user,
+        login,
+        logout,
         isOfficerMode,
         toggleRole,
         applicants,
