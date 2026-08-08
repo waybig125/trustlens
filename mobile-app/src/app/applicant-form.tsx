@@ -21,7 +21,10 @@ import {
   ArrowRight,
   CheckCircle2,
   Sparkles,
+  Camera,
+  ImageIcon,
 } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { useApp } from '../context/AppContext';
 import { api } from '../api/client';
 import { parseAmount, OnboardingPayload } from '../types';
@@ -285,28 +288,83 @@ export default function ApplicantFormScreen() {
 
   const [scanning, setScanning] = useState(false);
 
-  const handleScanOcr = async () => {
+  const handleScanOcr = async (source: 'camera' | 'library' | 'sample') => {
     setScanning(true);
     try {
+      let fileObj: { uri: string; name: string; type: string } | null = null;
+
+      if (source === 'camera') {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission Denied', 'Camera permission is required to scan your ID card.');
+          setScanning(false);
+          return;
+        }
+        const result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ['images'],
+          quality: 0.8,
+          allowsEditing: true,
+        });
+        if (result.canceled || !result.assets || result.assets.length === 0) {
+          setScanning(false);
+          return;
+        }
+        const asset = result.assets[0];
+        fileObj = {
+          uri: asset.uri,
+          name: asset.fileName || 'cnic_camera.jpg',
+          type: asset.mimeType || 'image/jpeg',
+        };
+      } else if (source === 'library') {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission Denied', 'Photo gallery permission is required to select an ID image.');
+          setScanning(false);
+          return;
+        }
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'],
+          quality: 0.8,
+          allowsEditing: true,
+        });
+        if (result.canceled || !result.assets || result.assets.length === 0) {
+          setScanning(false);
+          return;
+        }
+        const asset = result.assets[0];
+        fileObj = {
+          uri: asset.uri,
+          name: asset.fileName || 'cnic_gallery.jpg',
+          type: asset.mimeType || 'image/jpeg',
+        };
+      }
+
       let name = '';
       let cnic = '';
       let city = '';
       let address = '';
       let engine = '';
 
-      try {
+      if (fileObj) {
+        // Send real image file to backend API endpoint POST /api/documents/analyze!
+        const res = await api.analyzeDocument(fileObj, 'cnic');
+        const ext = res.extracted || {};
+        name = ext.name || '';
+        cnic = ext.cnic || '';
+        address = ext.address || '';
+        if (address && address.includes('Lahore')) city = 'Lahore';
+        else if (address && address.includes('Karachi')) city = 'Karachi';
+        else if (address && address.includes('Rawalpindi')) city = 'Rawalpindi';
+        else if (address && address.includes('Peshawar')) city = 'Peshawar';
+        engine = res.engine || ext.engine || 'gemini-vision';
+      } else {
+        // Demo 1-tap fallback
         const res = await api.ocr({ sample_id: 'amina' });
-        name = res.name || '';
-        cnic = res.cnic || '';
-        city = res.city || '';
-        address = res.address || '';
-        engine = res.engine || 'ocr';
-      } catch {
-        name = 'Amina Bibi';
-        cnic = '35202-1234567-1';
-        city = 'Lahore';
-        address = 'House #12, Block B, Model Town';
-        engine = 'demo-ocr';
+        name = res.name || 'Amina Bibi';
+        cnic = res.cnic || '35202-1234567-1';
+        city = res.city || 'Lahore';
+        address = res.address || 'House #12, Block B, Model Town';
+        engine = res.engine || 'sample-ocr';
       }
 
       setValues((prev) => ({
@@ -318,11 +376,11 @@ export default function ApplicantFormScreen() {
       }));
 
       Alert.alert(
-        'AI Document OCR Scan',
-        `Successfully scanned CNIC via ${engine}!\n\n• Name: ${name}\n• CNIC: ${cnic}\n• City: ${city}\n• Address: ${address}`,
+        'Gemini Vision OCR Result',
+        `Successfully analyzed CNIC document via ${engine}!\n\n• Name: ${name || 'Extracted'}\n• CNIC: ${cnic || 'Extracted'}\n• Address: ${address || 'Extracted'}`,
       );
-    } catch {
-      Alert.alert('OCR Error', 'Could not extract document fields. Please enter manually.');
+    } catch (e: any) {
+      Alert.alert('OCR Analysis Error', e?.message || 'Could not analyze document. Please enter details manually.');
     } finally {
       setScanning(false);
     }
@@ -333,25 +391,60 @@ export default function ApplicantFormScreen() {
     return (
       <View style={styles.formContainer}>
         {step === 1 && (
-          <TouchableOpacity
-            style={[styles.ocrButton, { backgroundColor: colors.primarySurface, borderColor: colors.primary }]}
-            onPress={handleScanOcr}
-            disabled={scanning}
-            activeOpacity={0.85}
-            accessibilityLabel="Scan CNIC / Auto-Fill Identity with AI OCR"
-            accessibilityRole="button"
-          >
+          <View style={styles.ocrBox}>
+            <Text style={[styles.ocrBoxTitle, { color: colors.bodyText, fontFamily: colors.bodyFontBold }]}>
+              AI Document OCR Scan (Gemini Vision)
+            </Text>
             {scanning ? (
-              <ActivityIndicator color={colors.primaryDark} />
-            ) : (
-              <>
-                <Sparkles size={18} color={colors.primaryDark} />
-                <Text style={[styles.ocrButtonText, { color: colors.primaryDark, fontFamily: colors.bodyFontBold }]}>
-                  AI CNIC Scan / Auto-Fill OCR
+              <View style={styles.scanningLoader}>
+                <ActivityIndicator color={colors.primary} size="small" />
+                <Text style={[styles.scanningText, { color: colors.primary, fontFamily: colors.bodyFontBold }]}>
+                  Analyzing document with Gemini Vision…
                 </Text>
-              </>
+              </View>
+            ) : (
+              <View style={styles.ocrRow}>
+                <TouchableOpacity
+                  style={[styles.ocrChip, { backgroundColor: colors.primarySurface, borderColor: colors.primary }]}
+                  onPress={() => handleScanOcr('camera')}
+                  activeOpacity={0.85}
+                  accessibilityLabel="Take Photo of CNIC Card with Camera"
+                  accessibilityRole="button"
+                >
+                  <Camera size={16} color={colors.primaryDark} />
+                  <Text style={[styles.ocrChipText, { color: colors.primaryDark, fontFamily: colors.bodyFontBold }]}>
+                    Camera
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.ocrChip, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+                  onPress={() => handleScanOcr('library')}
+                  activeOpacity={0.85}
+                  accessibilityLabel="Upload CNIC Card Photo from Gallery"
+                  accessibilityRole="button"
+                >
+                  <ImageIcon size={16} color={colors.text} />
+                  <Text style={[styles.ocrChipText, { color: colors.text, fontFamily: colors.bodyFontBold }]}>
+                    Upload Photo
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.ocrChip, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+                  onPress={() => handleScanOcr('sample')}
+                  activeOpacity={0.85}
+                  accessibilityLabel="1-Tap Demo Sample Scan"
+                  accessibilityRole="button"
+                >
+                  <Sparkles size={16} color={colors.secondary} />
+                  <Text style={[styles.ocrChipText, { color: colors.text, fontFamily: colors.bodyFontBold }]}>
+                    Demo Scan
+                  </Text>
+                </TouchableOpacity>
+              </View>
             )}
-          </TouchableOpacity>
+          </View>
         )}
         {stepFields(step).map(renderField)}
       </View>
@@ -544,18 +637,46 @@ const styles = StyleSheet.create({
   stepTitle: { fontSize: 16 },
   stepSub: { fontSize: 12, marginTop: 2 },
   formContainer: { paddingHorizontal: 8, marginBottom: 12, gap: 12, overflow: 'hidden' },
-  ocrButton: {
-    height: 48,
-    borderRadius: 24,
+  ocrBox: {
+    marginBottom: 8,
+    padding: 12,
+    borderRadius: 20,
     borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.2)',
+    backgroundColor: 'rgba(255, 215, 0, 0.05)',
+  },
+  ocrBoxTitle: {
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  scanningLoader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    marginBottom: 10,
+    paddingVertical: 10,
   },
-  ocrButtonText: {
-    fontSize: 13,
+  scanningText: {
+    fontSize: 12,
+  },
+  ocrRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  ocrChip: {
+    flex: 1,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  ocrChipText: {
+    fontSize: 12,
   },
   inputGroup: { marginBottom: 4 },
   inputLabel: { fontSize: 12, marginBottom: 6 },
