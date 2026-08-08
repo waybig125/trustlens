@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState } from 'react';
 import { Applicant, RiskLevel } from '../types';
+import { Palette } from '../constants/Palette';
 
 export const mockApplicants: Applicant[] = [
   {
@@ -65,6 +66,7 @@ interface AppContextType {
   colors: {
     background: string;
     surface: string;
+    surfaceElevated: string;
     text: string;
     secondaryText: string;
     primary: string;
@@ -107,29 +109,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
-  const colors = isDarkMode
-    ? {
-        background: '#12110E',
-        surface: '#1C1A17',
-        text: '#F7F5F0',
-        secondaryText: '#7C7767',
-        primary: '#FFD700',
-        border: 'rgba(255, 215, 0, 0.2)',
-        errorRed: '#FF7F50',
-        leafGreen: '#81C784',
-        warningOrange: '#FF8C00',
-      }
-    : {
-        background: '#F7F5F0',
-        surface: '#FFFFFF',
-        text: '#121212',
-        secondaryText: '#666666',
-        primary: '#D4AF37',
-        border: 'rgba(0, 0, 0, 0.1)',
-        errorRed: '#E53935',
-        leafGreen: '#4CAF50',
-        warningOrange: '#FB8C00',
-      };
+  const palette = isDarkMode ? Palette.dark : Palette.light;
+
+  const colors = {
+    background: palette.background,
+    surface: palette.surface,
+    surfaceElevated: palette.surfaceElevated,
+    text: palette.text,
+    secondaryText: palette.textMuted,
+    primary: palette.primary,
+    border: palette.surfaceBorder,
+    errorRed: palette.errorRed,
+    leafGreen: palette.leafGreen,
+    warningOrange: palette.accentOrange,
+  };
 
   return (
     <AppContext.Provider
