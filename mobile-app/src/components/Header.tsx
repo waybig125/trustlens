@@ -26,19 +26,6 @@ export const Header: React.FC = () => {
       accessibilityRole="header"
     >
       <View style={styles.leftGroup}>
-        {showBackButton && (
-          <TouchableOpacity
-            style={styles.headerBtn}
-            onPress={() => router.back()}
-            activeOpacity={0.7}
-            accessibilityLabel="Go back"
-            accessibilityRole="button"
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <ArrowLeft size={20} color={isDarkMode ? '#FFD700' : '#121212'} />
-          </TouchableOpacity>
-        )}
-
         <TouchableOpacity
           style={styles.logoRow}
           onPress={() => router.replace('/')}

@@ -176,7 +176,7 @@ export default function ApplicantStatusScreen() {
             {detail.risk.conclusion}
           </Text>
           {detail.risk.signals.map((s) => (
-            <View key={s.label} style={styles.signalRow}>
+            <View key={s.label} style={[styles.signalRow, { borderTopColor: colors.border }]}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.signalKey, { color: colors.bodyText, fontFamily: colors.bodyFontBold }]}>
                   {s.label}
@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   plantWrapper: { marginBottom: 16 },
-  statusTitle: { fontSize: 18, textAlign: 'center', marginBottom: 8 },
+  statusTitle: { fontSize: 22, textAlign: 'center', marginBottom: 8, letterSpacing: -0.4 },
   statusSubtitle: { fontSize: 14, textAlign: 'center', lineHeight: 20, marginBottom: 12 },
   growthPill: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
   growthPillText: { fontSize: 13 },

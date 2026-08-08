@@ -181,16 +181,19 @@ export function humanStatus(status: string | null | undefined): string {
 export function plantGrowth(state: string | null | undefined): number {
   switch ((state || '').toLowerCase()) {
     case 'bloomed':
-      return 1.0;
     case 'healthy':
-      return 0.9;
+    case 'active':
+    case 'approved':
+      return 1.0;
     case 'needs_attention':
       return 0.55;
     case 'review_requested':
       return 0.45;
     case 'under_review':
+    case 'in_edd':
       return 0.4;
     case 'declined':
+    case 'rejected':
       return 0.2;
     default:
       return 0.5;
