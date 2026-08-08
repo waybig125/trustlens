@@ -1,0 +1,32 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="1024" height="1024" rx="220" fill="#12110E"/>
+  
+  <!-- Outer Glow Ring -->
+  <circle cx="512" cy="512" r="410" stroke="#FFD700" stroke-opacity="0.25" stroke-width="12" stroke-dasharray="24 16"/>
+
+  <!-- Shield Base -->
+  <path d="M512 180L750 260V500C750 660 635 795 512 840C389 795 274 660 274 500V260L512 180Z" fill="#1C1A17" stroke="#FFD700" stroke-width="28" stroke-linejoin="round"/>
+
+  <!-- Inner Plant / Sprout -->
+  <!-- Stem -->
+  <path d="M512 680V410" stroke="#3D7A52" stroke-width="24" stroke-linecap="round"/>
+  
+  <!-- Left Leaf -->
+  <path d="M512 560C430 540 370 470 380 410C440 400 500 450 512 560Z" fill="#4E9E6A"/>
+  
+  <!-- Right Leaf -->
+  <path d="M512 500C594 480 654 410 644 350C584 340 524 390 512 500Z" fill="#4E9E6A"/>
+
+  <!-- Blooming Petals (Gold) -->
+  <circle cx="512" cy="380" r="32" fill="#FFD700"/>
+  <circle cx="512" cy="316" r="22" fill="#FF8C00"/>
+  <circle cx="576" cy="380" r="22" fill="#FF8C00"/>
+  <circle cx="512" cy="444" r="22" fill="#FF8C00"/>
+  <circle cx="448" cy="380" r="22" fill="#FF8C00"/>
+  <circle cx="557" cy="335" r="20" fill="#FFD700"/>
+  <circle cx="557" cy="425" r="20" fill="#FFD700"/>
+  <circle cx="467" cy="425" r="20" fill="#FFD700"/>
+  <circle cx="467" cy="335" r="20" fill="#FFD700"/>
+  <circle cx="512" cy="380" r="16" fill="#12110E"/>
+</svg>
