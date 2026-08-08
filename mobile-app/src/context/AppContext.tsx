@@ -95,6 +95,7 @@ interface AppContextType {
     bodyText: string;
     neutral: string;
     primary: string;
+    primaryDark: string;
     secondary: string;
     border: string;
     errorRed: string;
@@ -104,6 +105,8 @@ interface AppContextType {
     headlineFont: string;
     bodyFont: string;
     bodyFontBold: string;
+    stepTrack: string;
+    iconBadgeBg: string;
   };
 }
 
@@ -182,10 +185,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     background: palette.background,
     surface: palette.surface,
     surfaceElevated: palette.surfaceElevated,
-    text: isDarkMode ? palette.text : palette.secondary,
-    bodyText: isDarkMode ? palette.bodyText : palette.neutral,
+    text: palette.text,
+    bodyText: palette.bodyText,
     neutral: palette.neutral,
     primary: palette.primary,
+    primaryDark: palette.primaryDark,
     secondary: palette.secondary,
     border: palette.surfaceBorder,
     errorRed: palette.errorRed,
@@ -195,6 +199,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     headlineFont: palette.headlineFont,
     bodyFont: palette.bodyFont,
     bodyFontBold: palette.bodyFontBold,
+    stepTrack: palette.stepTrack,
+    iconBadgeBg: palette.iconBadgeBg,
   };
 
   return (
