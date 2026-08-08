@@ -66,14 +66,19 @@ interface AppContextType {
   colors: {
     background: string;
     surface: string;
-    surfaceElevated: string;
     text: string;
-    secondaryText: string;
+    bodyText: string;
+    neutral: string;
     primary: string;
+    secondary: string;
     border: string;
     errorRed: string;
     leafGreen: string;
+    softCoral: string;
     warningOrange: string;
+    headlineFont: string;
+    bodyFont: string;
+    bodyFontBold: string;
   };
 }
 
@@ -114,14 +119,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const colors = {
     background: palette.background,
     surface: palette.surface,
-    surfaceElevated: palette.surfaceElevated,
-    text: palette.text,
-    secondaryText: palette.textMuted,
+    text: isDarkMode ? palette.text! : palette.secondary!,
+    bodyText: isDarkMode ? palette.bodyText! : palette.neutral!,
+    neutral: palette.neutral,
     primary: palette.primary,
+    secondary: palette.secondary,
     border: palette.surfaceBorder,
     errorRed: palette.errorRed,
     leafGreen: palette.leafGreen,
-    warningOrange: palette.accentOrange,
+    softCoral: palette.softCoral!,
+    warningOrange: isDarkMode ? palette.secondary! : palette.accentOrange!,
+    headlineFont: palette.headlineFont,
+    bodyFont: palette.bodyFont,
+    bodyFontBold: palette.bodyFontBold,
   };
 
   return (

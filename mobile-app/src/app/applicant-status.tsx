@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Hourglass } from 'lucide-react-native';
+import { Flower2 } from 'lucide-react-native';
 import { useApp } from '../context/AppContext';
 
 export default function ApplicantStatusScreen() {
@@ -10,36 +10,53 @@ export default function ApplicantStatusScreen() {
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}>
-      <Text style={[styles.title, { color: colors.text }]}>Application Status</Text>
+      <Text style={[styles.title, { color: colors.text, fontFamily: colors.headlineFont }]}>
+        Application Status & Trust Garden
+      </Text>
 
+      {/* Garden Plant State Card */}
       <View style={[styles.statusCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.iconWrapper}>
-          <Hourglass size={56} color={colors.secondaryText} />
+          <Flower2 size={64} color={colors.primary} />
         </View>
-        <Text style={[styles.statusTitle, { color: colors.text }]}>
+        <Text style={[styles.statusTitle, { color: colors.text, fontFamily: colors.headlineFont }]}>
           {applicantStatus || 'Application Under AI Review'}
         </Text>
-        <Text style={[styles.statusSubtitle, { color: colors.secondaryText }]}>
-          Your Trust Plant is growing while we review your details.
+        <Text style={[styles.statusSubtitle, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
+          Your personal Trust Plant is thriving while our AI verifies your details.
         </Text>
       </View>
 
-      <Text style={[styles.sectionHeader, { color: colors.secondaryText }]}>Submitted Details</Text>
+      <Text style={[styles.sectionHeader, { color: colors.bodyText, fontFamily: colors.bodyFontBold }]}>
+        Submitted KYC Details
+      </Text>
+      
       <View style={styles.detailsList}>
         {Object.entries(currentApplicantForm).map(([key, value]) => (
           <View key={key} style={styles.detailRow}>
-            <Text style={[styles.detailKey, { color: colors.secondaryText }]}>{key}</Text>
-            <Text style={[styles.detailValue, { color: colors.text }]}>{value}</Text>
+            <Text style={[styles.detailKey, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>{key}</Text>
+            <Text style={[styles.detailValue, { color: colors.text, fontFamily: colors.bodyFontBold }]}>{value}</Text>
           </View>
         ))}
       </View>
 
-      <TouchableOpacity
-        style={[styles.homeButton, { backgroundColor: colors.primary }]}
-        onPress={() => router.replace('/')}
-        activeOpacity={0.8}>
-        <Text style={styles.homeButtonText}>Return to Home</Text>
-      </TouchableOpacity>
+      <View style={styles.buttonStack}>
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: colors.primary }]}
+          onPress={() => router.replace('/')}
+          activeOpacity={0.85}>
+          <Text style={[styles.primaryButtonText, { fontFamily: colors.bodyFontBold }]}>Return to Home</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.secondaryButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
+          onPress={() => router.push('/officer-dashboard')}
+          activeOpacity={0.85}>
+          <Text style={[styles.secondaryButtonText, { color: colors.text, fontFamily: colors.bodyFontBold }]}>
+            View Compliance Officer View
+          </Text>
+        </TouchableOpacity>
+      </View>
     </ScrollView>
   );
 }
@@ -53,7 +70,6 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: '800',
     marginBottom: 20,
     textAlign: 'center',
   },
@@ -68,8 +84,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   statusTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 20,
     textAlign: 'center',
     marginBottom: 8,
   },
@@ -80,7 +95,6 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     fontSize: 13,
-    fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 1,
     marginBottom: 12,
@@ -99,17 +113,28 @@ const styles = StyleSheet.create({
   },
   detailValue: {
     fontSize: 14,
-    fontWeight: '600',
   },
-  homeButton: {
+  buttonStack: {
+    gap: 12,
+  },
+  actionButton: {
     height: 56,
     borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  homeButtonText: {
+  primaryButtonText: {
     color: '#121212',
     fontSize: 16,
-    fontWeight: '700',
+  },
+  secondaryButton: {
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secondaryButtonText: {
+    fontSize: 15,
   },
 });

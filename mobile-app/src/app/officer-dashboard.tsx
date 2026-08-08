@@ -9,7 +9,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Search, AlertTriangle, Sprout } from 'lucide-react-native';
+import { Search, Flame, Sprout } from 'lucide-react-native';
 import { useApp } from '../context/AppContext';
 import { Applicant, RiskLevel } from '../types';
 
@@ -25,7 +25,8 @@ export default function OfficerDashboardScreen() {
   const filteredApplicants = applicants.filter((app) => {
     const matchesSearch =
       app.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      app.id.includes(searchQuery);
+      app.id.includes(searchQuery) ||
+      app.riskLevel.toLowerCase().includes(searchQuery.toLowerCase());
     let matchesFilter = true;
     if (selectedFilter === 'Low Risk (Thriving)') {
       matchesFilter = app.riskLevel === RiskLevel.LOW;
@@ -39,44 +40,58 @@ export default function OfficerDashboardScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Top Stat Cards Horizontal Scroll */}
+      {/* Top Stats Banner */}
       <View style={styles.statsContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statsScroll}>
           <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Text style={[styles.statTitle, { color: colors.secondaryText }]}>Total Onboarded</Text>
-            <Text style={[styles.statValue, { color: colors.text }]}>1,245</Text>
+            <Text style={[styles.statTitle, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
+              Total Onboarded
+            </Text>
+            <Text style={[styles.statValue, { color: colors.text, fontFamily: colors.headlineFont }]}>
+              1,245
+            </Text>
           </View>
 
           <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Text style={[styles.statTitle, { color: colors.secondaryText }]}>High Risk (EDD)</Text>
+            <Text style={[styles.statTitle, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
+              Flagged for EDD
+            </Text>
             <View style={styles.statValueRow}>
-              <Text style={[styles.statValue, { color: colors.errorRed }]}>12</Text>
-              <Text style={[styles.alertBadge, { color: colors.errorRed }]}>Critical</Text>
+              <Text style={[styles.statValue, { color: colors.softCoral, fontFamily: colors.headlineFont }]}>
+                12
+              </Text>
+              <Text style={[styles.alertBadge, { color: colors.softCoral, fontFamily: colors.bodyFontBold }]}>
+                High Risk
+              </Text>
             </View>
           </View>
 
           <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Text style={[styles.statTitle, { color: colors.secondaryText }]}>AI Accuracy</Text>
-            <Text style={[styles.statValue, { color: colors.text }]}>98.4%</Text>
+            <Text style={[styles.statTitle, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
+              AI Approval Rate
+            </Text>
+            <Text style={[styles.statValue, { color: colors.text, fontFamily: colors.headlineFont }]}>
+              98.4%
+            </Text>
           </View>
         </ScrollView>
       </View>
 
-      {/* Search Input */}
+      {/* Search Bar */}
       <View style={styles.searchPadding}>
         <View style={[styles.searchBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Search size={18} color={colors.secondaryText} />
+          <Search size={18} color={colors.neutral} />
           <TextInput
-            style={[styles.searchInput, { color: colors.text }]}
-            placeholder="Search applicant name, ID..."
-            placeholderTextColor={colors.secondaryText}
+            style={[styles.searchInput, { color: colors.text, fontFamily: colors.bodyFont }]}
+            placeholder="Search applicant name, ID, or risk flag..."
+            placeholderTextColor={colors.neutral}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
         </View>
       </View>
 
-      {/* Filter Chips Horizontal Bar */}
+      {/* Filter Pills */}
       <View style={styles.filterContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
           {filters.map((filter) => {
@@ -92,11 +107,14 @@ export default function OfficerDashboardScreen() {
                   },
                 ]}
                 onPress={() => setSelectedFilter(filter)}
-                activeOpacity={0.7}>
+                activeOpacity={0.75}>
                 <Text
                   style={[
                     styles.filterChipText,
-                    { color: isSelected ? '#121212' : colors.text },
+                    {
+                      color: isSelected ? '#121212' : colors.text,
+                      fontFamily: isSelected ? colors.bodyFontBold : colors.bodyFont,
+                    },
                   ]}>
                   {filter}
                 </Text>
@@ -106,7 +124,7 @@ export default function OfficerDashboardScreen() {
         </ScrollView>
       </View>
 
-      {/* Applicants List */}
+      {/* Crypto-Wallet Token List Style Cards */}
       <FlatList
         data={filteredApplicants}
         keyExtractor={(item) => item.id}
@@ -117,46 +135,54 @@ export default function OfficerDashboardScreen() {
             <TouchableOpacity
               style={[styles.applicantCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
               onPress={() => router.push(`/edd-review/${item.id}`)}
-              activeOpacity={0.8}>
+              activeOpacity={0.85}>
               <View
                 style={[
                   styles.iconCircle,
-                  { backgroundColor: isHighRisk ? `${colors.errorRed}20` : `${colors.primary}20` },
+                  { backgroundColor: isHighRisk ? `${colors.softCoral}20` : `${colors.leafGreen}20` },
                 ]}>
                 {isHighRisk ? (
-                  <AlertTriangle size={24} color={colors.errorRed} />
+                  <Flame size={26} color={colors.softCoral} />
                 ) : (
-                  <Sprout size={24} color={colors.primary} />
+                  <Sprout size={26} color={colors.leafGreen} />
                 )}
               </View>
 
               <View style={styles.cardInfo}>
                 <View style={styles.cardHeaderRow}>
-                  <Text style={[styles.applicantName, { color: colors.text }]} numberOfLines={1}>
+                  <Text style={[styles.applicantName, { color: colors.text, fontFamily: colors.headlineFont }]} numberOfLines={1}>
                     {item.name}
                   </Text>
+
                   <View
                     style={[
                       styles.riskBadge,
-                      { backgroundColor: isHighRisk ? `${colors.errorRed}20` : `${colors.secondaryText}20` },
+                      { backgroundColor: isHighRisk ? `${colors.softCoral}25` : `${colors.leafGreen}25` },
                     ]}>
                     <Text
                       style={[
                         styles.riskBadgeText,
-                        { color: isHighRisk ? colors.errorRed : colors.secondaryText },
+                        { color: isHighRisk ? colors.softCoral : colors.leafGreen, fontFamily: colors.bodyFontBold },
                       ]}>
-                      {isHighRisk ? 'HIGH RISK' : 'CLEARED'}
+                      {isHighRisk ? 'HIGH RISK' : item.status === 'Auto-Approved' ? 'AUTO-APPROVED' : 'LOW RISK'}
                     </Text>
                   </View>
                 </View>
-                <Text style={[styles.cardSubtitle, { color: colors.secondaryText }]}>
-                  {isHighRisk ? 'Income Variance Detected' : `${item.aiConfidence}% AI Confidence`}
+
+                <Text style={[styles.cardSubtitle, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
+                  {isHighRisk
+                    ? 'Income vs Transaction Intent Mismatch'
+                    : `${item.aiConfidence}% AI Confidence`}
                 </Text>
               </View>
 
               <View style={styles.cardMeta}>
-                <Text style={[styles.idText, { color: colors.secondaryText }]}>ID: {item.id}</Text>
-                <Text style={[styles.reviewLink, { color: colors.text }]}>Review</Text>
+                <Text style={[styles.idText, { color: colors.neutral, fontFamily: colors.bodyFont }]}>
+                  ID: {item.id}
+                </Text>
+                <Text style={[styles.reviewLink, { color: colors.text, fontFamily: colors.bodyFontBold }]}>
+                  Review
+                </Text>
               </View>
             </TouchableOpacity>
           );
@@ -178,14 +204,13 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   statCard: {
-    width: 130,
-    borderRadius: 20,
+    width: 140,
+    borderRadius: 24,
     borderWidth: 1,
     padding: 14,
   },
   statTitle: {
     fontSize: 11,
-    fontWeight: '500',
     marginBottom: 4,
   },
   statValueRow: {
@@ -195,24 +220,22 @@ const styles = StyleSheet.create({
   },
   statValue: {
     fontSize: 22,
-    fontWeight: '800',
   },
   alertBadge: {
     fontSize: 10,
-    fontWeight: '700',
   },
   searchPadding: {
     paddingHorizontal: 20,
     marginBottom: 12,
   },
   searchBox: {
-    height: 48,
-    borderRadius: 16,
+    height: 50,
+    borderRadius: 18,
     borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
-    gap: 8,
+    gap: 10,
   },
   searchInput: {
     flex: 1,
@@ -226,14 +249,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   filterChip: {
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
   },
   filterChipText: {
     fontSize: 12,
-    fontWeight: '600',
   },
   listContent: {
     paddingHorizontal: 20,
@@ -241,19 +263,19 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   applicantCard: {
-    borderRadius: 20,
+    borderRadius: 24,
     borderWidth: 1,
     padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
   },
   iconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 14,
   },
   cardInfo: {
     flex: 1,
@@ -266,20 +288,19 @@ const styles = StyleSheet.create({
   },
   applicantName: {
     fontSize: 16,
-    fontWeight: '700',
   },
   riskBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
   riskBadgeText: {
     fontSize: 9,
-    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   cardSubtitle: {
     fontSize: 12,
-    marginTop: 2,
+    marginTop: 4,
   },
   cardMeta: {
     alignItems: 'flex-end',
@@ -291,6 +312,5 @@ const styles = StyleSheet.create({
   },
   reviewLink: {
     fontSize: 12,
-    fontWeight: '700',
   },
 });

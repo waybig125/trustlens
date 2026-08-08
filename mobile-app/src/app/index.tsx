@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Shield, ArrowRight, UserCheck, ShieldAlert } from 'lucide-react-native';
+import { Sprout, Shield, Coins, ArrowRight, UserCheck, ShieldAlert } from 'lucide-react-native';
 import { useApp } from '../context/AppContext';
 import { GlassCard } from '../components/GlassCard';
 
@@ -12,34 +12,50 @@ export default function WelcomeScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.centerContent}>
-        {/* Glowing Brand Badge */}
-        <View style={[styles.iconGlowRing, { backgroundColor: `${colors.primary}18`, borderColor: `${colors.primary}35` }]}>
-          <View style={[styles.iconContainer, { backgroundColor: colors.primary }]}>
-            <Shield size={48} color="#0D0C0A" strokeWidth={2.2} />
+        {/* Hero Vector Graphic Cluster */}
+        <View style={[styles.heroCluster, { backgroundColor: `${colors.primary}15`, borderColor: colors.border }]}>
+          <View style={[styles.iconBadge, { backgroundColor: colors.primary }]}>
+            <Sprout size={32} color="#121212" />
+          </View>
+          <View style={[styles.iconBadge, { backgroundColor: colors.primary }]}>
+            <Shield size={36} color="#121212" />
+          </View>
+          <View style={[styles.iconBadge, { backgroundColor: colors.primary }]}>
+            <Coins size={32} color="#121212" />
           </View>
         </View>
 
-        <Text style={[styles.title, { color: colors.text }]}>TrustLens Banking</Text>
+        <Text style={[styles.title, { color: colors.text, fontFamily: colors.headlineFont }]}>
+          TrustLens Banking
+        </Text>
 
-        <Text style={[styles.subtitle, { color: colors.secondaryText }]}>
+        <Text style={[styles.subtitle, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
           Playful, AI-powered digital onboarding and real-time risk intelligence.
         </Text>
 
         {/* Feature Cards Grid */}
         <View style={styles.cardGrid}>
           <GlassCard style={styles.featureCard}>
-            <UserCheck size={24} color={colors.primary} />
+            <UserCheck size={26} color={colors.primary} />
             <View style={styles.featureTextWrapper}>
-              <Text style={[styles.featureTitle, { color: colors.text }]}>Smart Onboarding</Text>
-              <Text style={[styles.featureSub, { color: colors.secondaryText }]}>Instant AI verification</Text>
+              <Text style={[styles.featureTitle, { color: colors.text, fontFamily: colors.headlineFont }]}>
+                Smart Onboarding
+              </Text>
+              <Text style={[styles.featureSub, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
+                Instant AI verification
+              </Text>
             </View>
           </GlassCard>
 
           <GlassCard style={styles.featureCard}>
-            <ShieldAlert size={24} color={colors.warningOrange} />
+            <ShieldAlert size={26} color={colors.softCoral} />
             <View style={styles.featureTextWrapper}>
-              <Text style={[styles.featureTitle, { color: colors.text }]}>EDD Intelligence</Text>
-              <Text style={[styles.featureSub, { color: colors.secondaryText }]}>Officer risk reviews</Text>
+              <Text style={[styles.featureTitle, { color: colors.text, fontFamily: colors.headlineFont }]}>
+                EDD Intelligence
+              </Text>
+              <Text style={[styles.featureSub, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
+                Officer risk reviews
+              </Text>
             </View>
           </GlassCard>
         </View>
@@ -50,16 +66,18 @@ export default function WelcomeScreen() {
             style={[styles.primaryButton, { backgroundColor: colors.primary }]}
             onPress={() => router.push('/applicant-form')}
             activeOpacity={0.85}>
-            <Text style={styles.primaryButtonText}>Open An Account (Applicant)</Text>
-            <ArrowRight size={18} color="#0D0C0A" />
+            <Text style={[styles.primaryButtonText, { fontFamily: colors.bodyFontBold }]}>
+              Open An Account (Applicant)
+            </Text>
+            <ArrowRight size={18} color="#121212" />
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.secondaryButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
             onPress={() => router.push('/officer-dashboard')}
             activeOpacity={0.85}>
-            <Text style={[styles.secondaryButtonText, { color: colors.text }]}>
-              Officer EDD Dashboard (Admin)
+            <Text style={[styles.secondaryButtonText, { color: colors.text, fontFamily: colors.bodyFontBold }]}>
+              Officer EDD Dashboard (Compliance Admin)
             </Text>
           </TouchableOpacity>
         </View>
@@ -77,25 +95,26 @@ const styles = StyleSheet.create({
   centerContent: {
     alignItems: 'center',
   },
-  iconGlowRing: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    borderWidth: 1,
+  heroCluster: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderRadius: 30,
+    borderWidth: 1,
+    gap: 16,
     marginBottom: 24,
   },
-  iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+  iconBadge: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
   },
   title: {
     fontSize: 32,
-    fontWeight: '900',
     textAlign: 'center',
     marginBottom: 10,
     letterSpacing: -0.5,
@@ -104,18 +123,17 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     textAlign: 'center',
-    marginBottom: 36,
+    marginBottom: 32,
     paddingHorizontal: 12,
   },
   cardGrid: {
     width: '100%',
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 36,
+    marginBottom: 32,
   },
   featureCard: {
     flex: 1,
-    flexDirection: 'column',
     gap: 8,
     padding: 16,
   },
@@ -124,7 +142,6 @@ const styles = StyleSheet.create({
   },
   featureTitle: {
     fontSize: 13,
-    fontWeight: '700',
   },
   featureSub: {
     fontSize: 11,
@@ -143,9 +160,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   primaryButtonText: {
-    color: '#0D0C0A',
+    color: '#121212',
     fontSize: 16,
-    fontWeight: '700',
   },
   secondaryButton: {
     height: 56,
@@ -155,7 +171,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   secondaryButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 15,
   },
 });

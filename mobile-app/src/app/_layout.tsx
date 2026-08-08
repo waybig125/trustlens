@@ -4,6 +4,8 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { AppProvider, useApp } from '../context/AppContext';
 import { Header } from '../components/Header';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts, Sora_700Bold } from '@expo-google-fonts/sora';
+import { HankenGrotesk_400Regular, HankenGrotesk_700Bold } from '@expo-google-fonts/hanken-grotesk';
 
 function RootLayoutNav() {
   const { colors, isDarkMode } = useApp();
@@ -23,6 +25,16 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    Sora_700Bold,
+    HankenGrotesk_400Regular,
+    HankenGrotesk_700Bold,
+  });
+
+  if (!fontsLoaded) {
+    return null;
+  }
+
   return (
     <SafeAreaProvider>
       <AppProvider>
