@@ -25,8 +25,6 @@ import {
 import { useApp } from '../context/AppContext';
 import { AnimatedTrustPlant } from '../components/AnimatedTrustPlant';
 import { FadeInView } from '../components/AnimatedContainers';
-import { MotiView } from 'moti';
-import { AnimatePresence } from 'moti';
 
 // ── Field definitions ────────────────────────────────────────────
 interface FieldDef {
@@ -270,21 +268,14 @@ export default function ApplicantFormScreen() {
     );
   };
 
-  const renderStepFields = (step: 1 | 2 | 3) => (
-    <AnimatePresence>
-      {activeStep === step && (
-        <MotiView
-          from={{ opacity: 0, scale: 0.97 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.97 }}
-          transition={{ type: 'spring', damping: 18, stiffness: 120 }}
-          style={styles.formContainer}
-        >
-          {stepFields(step).map(renderField)}
-        </MotiView>
-      )}
-    </AnimatePresence>
-  );
+  const renderStepFields = (step: 1 | 2 | 3) => {
+    if (activeStep !== step) return null;
+    return (
+      <View style={styles.formContainer}>
+        {stepFields(step).map(renderField)}
+      </View>
+    );
+  };
 
   const canSubmit = activeStep === 3 && allRequiredComplete && !isSubmitting;
 
@@ -313,10 +304,8 @@ export default function ApplicantFormScreen() {
 
         {/* Progress Bar — animated by growth */}
         <View style={[styles.progressTrack, { backgroundColor: colors.stepTrack }]}>
-          <MotiView
-            animate={{ width: `${progressPercent}%` as any }}
-            transition={{ type: 'spring', damping: 15, stiffness: 100 }}
-            style={[styles.progressFill, { backgroundColor: colors.primary }]}
+          <View
+            style={[styles.progressFill, { backgroundColor: colors.primary, width: `${progressPercent}%` }]}
           />
         </View>
 
