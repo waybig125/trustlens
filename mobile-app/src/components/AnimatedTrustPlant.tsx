@@ -1,133 +1,387 @@
-import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, View, StyleSheet } from 'react-native';
-import Svg, { Path, Circle, Ellipse, G } from 'react-native-svg';
-import { useApp } from '../context/AppContext';
+/**
+ * AnimatedTrustPlant — Reanimated 4 powered SVG plant
+ *
+ * Accepts a continuous `growth` (0→1) instead of discrete stages.
+ * All SVG geometry interpolates on the UI thread via useAnimatedProps.
+ * Zero React re-renders during animation.
+ *
+ * Growth map:
+ *   0.00→0.08  seed visible, crack opens
+ *   0.08→0.40  stem grows from soil
+ *   0.30→0.60  leaf 1 unfurls
+ *   0.40→0.70  leaf 2 unfurls
+ *   0.65→1.00  bloom opens, petals rotate
+ */
+import React, { useEffect } from 'react';
+import { View, StyleSheet } from 'react-native';
+import Svg, {
+  Path,
+  Circle,
+  Ellipse,
+  G,
+} from 'react-native-svg';
+import Animated, {
+  useSharedValue,
+  useAnimatedProps,
+  useDerivedValue,
+  withSpring,
+  withTiming,
+  withRepeat,
+  cancelAnimation,
+  Easing,
+  useReducedMotion,
+  interpolate,
+  runOnJS,
+} from 'react-native-reanimated';
+import { Palette } from '../constants/Palette';
+
+// Animated SVG primitives — created once at module level
+const APath = Animated.createAnimatedComponent(Path);
+const ACircle = Animated.createAnimatedComponent(Circle);
+const AEllipse = Animated.createAnimatedComponent(Ellipse);
 
 interface AnimatedTrustPlantProps {
-  /** 0 = seed, 1 = sprout, 2 = sapling, 3 = bloom */
-  stage: 0 | 1 | 2 | 3;
+  /** Continuous growth value 0 (seed) → 1 (full bloom) */
+  growth: number;
+  /** Pixel size of the square canvas */
   size?: number;
+  /** When false, ambient loops are cancelled (e.g. screen blur) */
+  focused?: boolean;
+  /** Use dark palette */
+  dark?: boolean;
+}
+
+// Clamp helper for worklets
+function clamp(v: number, min: number, max: number): number {
+  'worklet';
+  return Math.min(Math.max(v, min), max);
+}
+
+// Map a value from [inLo, inHi] → [outLo, outHi], clamped
+function mapRange(
+  v: number,
+  inLo: number,
+  inHi: number,
+  outLo: number,
+  outHi: number,
+): number {
+  'worklet';
+  const t = clamp((v - inLo) / (inHi - inLo), 0, 1);
+  return outLo + t * (outHi - outLo);
 }
 
 export const AnimatedTrustPlant: React.FC<AnimatedTrustPlantProps> = ({
-  stage,
+  growth,
   size = 160,
+  focused = true,
+  dark = true,
 }) => {
-  const { colors } = useApp();
+  const reducedMotion = useReducedMotion();
 
-  // Animated values
-  const stemProgress = useRef(new Animated.Value(0)).current;
-  const leaf1Progress = useRef(new Animated.Value(0)).current;
-  const leaf2Progress = useRef(new Animated.Value(0)).current;
-  const bloomProgress = useRef(new Animated.Value(0)).current;
-  const glowOpacity = useRef(new Animated.Value(0.3)).current;
-  const seedPulse = useRef(new Animated.Value(1)).current;
-  const petalAngle = useRef(new Animated.Value(0)).current;
+  // ── Shared values ──────────────────────────────────────────────
+  const sv = useSharedValue(0); // main growth 0→1
+  const glowOp = useSharedValue(0.3); // glow ring opacity
+  const petalRot = useSharedValue(0); // bloom petal rotation degrees
+  const seedPulse = useSharedValue(1); // seed breathing scale
 
-  // We'll drive the view-level transforms using these animated values
-  const [stemH, setStemH] = React.useState(0);
-  const [leaf1S, setLeaf1S] = React.useState(0);
-  const [leaf2S, setLeaf2S] = React.useState(0);
-  const [bloomS, setBloomS] = React.useState(0);
-  const [glowOp, setGlowOp] = React.useState(0.3);
-  const [seedS, setSeedS] = React.useState(1);
-  const [petalRot, setPetalRot] = React.useState(0);
-
+  // ── Drive growth ───────────────────────────────────────────────
   useEffect(() => {
-    stemProgress.addListener(({ value }) => setStemH(value));
-    leaf1Progress.addListener(({ value }) => setLeaf1S(value));
-    leaf2Progress.addListener(({ value }) => setLeaf2S(value));
-    bloomProgress.addListener(({ value }) => setBloomS(value));
-    glowOpacity.addListener(({ value }) => setGlowOp(value));
-    seedPulse.addListener(({ value }) => setSeedS(value));
-    petalAngle.addListener(({ value }) => setPetalRot(value));
+    if (reducedMotion) {
+      sv.value = growth;
+    } else {
+      sv.value = withSpring(growth, { damping: 16, stiffness: 90 });
+    }
+  }, [growth, reducedMotion]);
+
+  // ── Ambient loops (start/stop with focused) ────────────────────
+  useEffect(() => {
+    if (!focused || reducedMotion) {
+      cancelAnimation(glowOp);
+      cancelAnimation(petalRot);
+      cancelAnimation(seedPulse);
+      glowOp.value = 0.4;
+      petalRot.value = 0;
+      seedPulse.value = 1;
+      return;
+    }
+
+    // Glow ring pulse
+    glowOp.value = withRepeat(
+      withTiming(0.75, { duration: 1400, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true,
+    );
+
+    // Seed breathing
+    seedPulse.value = withRepeat(
+      withTiming(1.15, { duration: 900, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true,
+    );
+
+    // Petal rotation
+    petalRot.value = withRepeat(
+      withTiming(360, { duration: 10000, easing: Easing.linear }),
+      -1,
+      false,
+    );
 
     return () => {
-      stemProgress.removeAllListeners();
-      leaf1Progress.removeAllListeners();
-      leaf2Progress.removeAllListeners();
-      bloomProgress.removeAllListeners();
-      glowOpacity.removeAllListeners();
-      seedPulse.removeAllListeners();
-      petalAngle.removeAllListeners();
+      cancelAnimation(glowOp);
+      cancelAnimation(petalRot);
+      cancelAnimation(seedPulse);
     };
-  }, []);
+  }, [focused, reducedMotion]);
 
-  useEffect(() => {
-    // Continuous glow pulse
-    const glowLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(glowOpacity, { toValue: 0.75, duration: 1200, useNativeDriver: false, easing: Easing.inOut(Easing.sin) }),
-        Animated.timing(glowOpacity, { toValue: 0.15, duration: 1200, useNativeDriver: false, easing: Easing.inOut(Easing.sin) }),
-      ])
-    );
-    glowLoop.start();
-
-    // Seed pulse when stage 0
-    const seedLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(seedPulse, { toValue: 1.15, duration: 850, useNativeDriver: false, easing: Easing.inOut(Easing.sin) }),
-        Animated.timing(seedPulse, { toValue: 0.9, duration: 850, useNativeDriver: false, easing: Easing.inOut(Easing.sin) }),
-      ])
-    );
-    if (stage === 0) seedLoop.start();
-
-    // Petal slow rotation for bloom
-    const petalLoop = Animated.loop(
-      Animated.timing(petalAngle, { toValue: 360, duration: 8000, useNativeDriver: false, easing: Easing.linear })
-    );
-    if (stage === 3) petalLoop.start();
-
-    // Stage-based grow animations
-    Animated.sequence([
-      Animated.spring(stemProgress, { toValue: stage >= 1 ? 1 : 0, useNativeDriver: false, tension: 60, friction: 8 }),
-      Animated.parallel([
-        Animated.spring(leaf1Progress, { toValue: stage >= 2 ? 1 : 0, useNativeDriver: false, tension: 55, friction: 7 }),
-        Animated.spring(leaf2Progress, { toValue: stage >= 2 ? 1 : 0, useNativeDriver: false, tension: 55, friction: 9 }),
-      ]),
-      Animated.spring(bloomProgress, { toValue: stage >= 3 ? 1 : 0, useNativeDriver: false, tension: 50, friction: 6 }),
-    ]).start();
-
-    return () => {
-      glowLoop.stop();
-      seedLoop.stop();
-      petalLoop.stop();
-    };
-  }, [stage]);
-
+  // ── Layout constants ───────────────────────────────────────────
   const cx = size / 2;
-  // Plant baseline (soil line)
   const soilY = size * 0.78;
-  // Stem tip (top of full-grown stem)
-  const stemTipY = size * 0.24;
-  // Stem current tip based on animation
-  const stemCurrentTipY = soilY - (soilY - stemTipY) * stemH;
+  const stemTopY = size * 0.22;
+  const bloomCY = stemTopY;
 
-  // Leaf anchor midpoint on stem
-  const leaf1AnchorY = soilY - (soilY - stemTipY) * 0.5 * stemH;
-
-  // Bloom center
-  const bloomCY = stemTipY;
-
-  // Colors
+  // ── Colors from Palette ────────────────────────────────────────
+  const palette = dark ? Palette.dark : Palette.light;
   const stemColor = '#3D7A52';
   const leafColor = '#4E9E6A';
-  const leafHighlight = '#78C895';
-  const soilColor = '#5C4A2A';
-  const soilMoundColor = '#7A6040';
+  const leafVein = '#78C895';
+  const soilDark = '#5C4A2A';
+  const soilLight = '#7A6040';
+  const primaryGold = palette.primary;
+  const amberPetal = '#FF8C00';
+
+  // ── Derived values (UI thread) ─────────────────────────────────
+
+  // Seed visibility: visible when growth < 0.15, fades out 0.08→0.15
+  const seedScale = useDerivedValue(() => {
+    return mapRange(sv.value, 0, 0.12, 1, 0);
+  });
+
+  // Seed crack: opens as growth goes 0→0.08
+  const seedCrack = useDerivedValue(() => {
+    return mapRange(sv.value, 0.02, 0.08, 0, size * 0.04);
+  });
+
+  // Stem: grows from soilY toward stemTopY (0.08→0.40)
+  const stemT = useDerivedValue(() => {
+    return mapRange(sv.value, 0.08, 0.40, 0, 1);
+  });
+
+  // Leaf 1: unfurls (0.30→0.60)
+  const leaf1T = useDerivedValue(() => {
+    return mapRange(sv.value, 0.30, 0.60, 0, 1);
+  });
+
+  // Leaf 2: unfurls (0.40→0.70)
+  const leaf2T = useDerivedValue(() => {
+    return mapRange(sv.value, 0.40, 0.70, 0, 1);
+  });
+
+  // Bloom: opens (0.65→1.0)
+  const bloomT = useDerivedValue(() => {
+    return mapRange(sv.value, 0.65, 1.0, 0, 1);
+  });
+
+  // ── Animated props ─────────────────────────────────────────────
+
+  // Glow ring
+  const glowProps = useAnimatedProps(() => ({
+    opacity: glowOp.value,
+  }));
+
+  // Seed left half
+  const seedLeftProps = useAnimatedProps(() => {
+    const s = seedScale.value;
+    const crack = seedCrack.value;
+    const pulse = seedPulse.value;
+    return {
+      cx: cx - crack,
+      cy: soilY - size * 0.04,
+      rx: size * 0.1 * s * pulse,
+      ry: size * 0.07 * s * pulse,
+      opacity: s * 0.9,
+    };
+  });
+
+  // Seed right half (mirror)
+  const seedRightProps = useAnimatedProps(() => {
+    const s = seedScale.value;
+    const crack = seedCrack.value;
+    const pulse = seedPulse.value;
+    return {
+      cx: cx + crack,
+      cy: soilY - size * 0.04,
+      rx: size * 0.1 * s * pulse,
+      ry: size * 0.07 * s * pulse,
+      opacity: s * 0.9,
+    };
+  });
+
+  // Seed sprout nub (tiny green sprout emerging from crack)
+  const seedSproutProps = useAnimatedProps(() => {
+    const crack = seedCrack.value;
+    const s = seedScale.value;
+    const sproutH = mapRange(sv.value, 0.04, 0.10, 0, size * 0.06);
+    return {
+      cx: cx,
+      cy: soilY - size * 0.04 - sproutH,
+      rx: size * 0.025 * clamp(crack / (size * 0.03), 0, 1),
+      ry: sproutH * 0.7,
+      opacity: clamp(crack / (size * 0.02), 0, 1) * s,
+    };
+  });
+
+  // Stem path
+  const stemProps = useAnimatedProps(() => {
+    const t = stemT.value;
+    if (t <= 0) return { d: '' };
+    const tipY = soilY - (soilY - stemTopY) * t;
+    const ctrlX = cx + size * 0.03;
+    const ctrlY = (soilY + tipY) / 2;
+    return {
+      d: `M ${cx} ${soilY} Q ${ctrlX} ${ctrlY} ${cx} ${tipY}`,
+    };
+  });
+
+  // Leaf 1 — left petiole
+  const leaf1PetioleProps = useAnimatedProps(() => {
+    const t = leaf1T.value;
+    const st = stemT.value;
+    if (t <= 0 || st <= 0) return { d: '' };
+    const anchorY = soilY - (soilY - stemTopY) * 0.5 * st;
+    const endX = cx - size * 0.2 * t;
+    const endY = anchorY - size * 0.12 * t;
+    const ctrlX = cx - size * 0.1 * t;
+    const ctrlY = anchorY - size * 0.04 * t;
+    return {
+      d: `M ${cx} ${anchorY} Q ${ctrlX} ${ctrlY} ${endX} ${endY}`,
+    };
+  });
+
+  // Leaf 1 blade
+  const leaf1BladeProps = useAnimatedProps(() => {
+    const t = leaf1T.value;
+    const st = stemT.value;
+    if (t <= 0 || st <= 0) return { cx: 0, cy: 0, rx: 0, ry: 0, opacity: 0 };
+    const anchorY = soilY - (soilY - stemTopY) * 0.5 * st;
+    return {
+      cx: cx - size * 0.22 * t,
+      cy: anchorY - size * 0.14 * t,
+      rx: size * 0.11 * t,
+      ry: size * 0.06 * t,
+      opacity: 0.9 * t,
+    };
+  });
+
+  // Leaf 2 — right petiole
+  const leaf2PetioleProps = useAnimatedProps(() => {
+    const t = leaf2T.value;
+    const st = stemT.value;
+    if (t <= 0 || st <= 0) return { d: '' };
+    const anchorY = soilY - (soilY - stemTopY) * 0.55 * st;
+    const endX = cx + size * 0.18 * t;
+    const endY = anchorY - size * 0.18 * t;
+    const ctrlX = cx + size * 0.1 * t;
+    const ctrlY = anchorY - size * 0.1 * t;
+    return {
+      d: `M ${cx} ${anchorY} Q ${ctrlX} ${ctrlY} ${endX} ${endY}`,
+    };
+  });
+
+  // Leaf 2 blade
+  const leaf2BladeProps = useAnimatedProps(() => {
+    const t = leaf2T.value;
+    const st = stemT.value;
+    if (t <= 0 || st <= 0) return { cx: 0, cy: 0, rx: 0, ry: 0, opacity: 0 };
+    const anchorY = soilY - (soilY - stemTopY) * 0.55 * st;
+    return {
+      cx: cx + size * 0.2 * t,
+      cy: anchorY - size * 0.2 * t,
+      rx: size * 0.1 * t,
+      ry: size * 0.056 * t,
+      opacity: 0.88 * t,
+    };
+  });
+
+  // Bloom center
+  const bloomCenterProps = useAnimatedProps(() => {
+    const t = bloomT.value;
+    return {
+      cx: cx,
+      cy: bloomCY,
+      r: size * 0.09 * t,
+      opacity: t,
+    };
+  });
+
+  // Bloom inner dot
+  const bloomDotProps = useAnimatedProps(() => {
+    const t = bloomT.value;
+    return {
+      cx: cx,
+      cy: bloomCY,
+      r: size * 0.045 * t,
+      opacity: t,
+    };
+  });
+
+  // Build petal animated props (8 petals)
+  const petalAngles = [0, 45, 90, 135, 180, 225, 270, 315];
+  const petalProps = petalAngles.map((baseAngle) =>
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    useAnimatedProps(() => {
+      const t = bloomT.value;
+      if (t <= 0) return { cx: cx, cy: bloomCY, rx: 0, ry: 0, opacity: 0, transform: '' };
+      const angle = (baseAngle + petalRot.value) % 360;
+      const rad = (angle * Math.PI) / 180;
+      const dist = size * 0.13 * t;
+      const px = cx + Math.cos(rad) * dist;
+      const py = bloomCY + Math.sin(rad) * dist;
+      return {
+        cx: px,
+        cy: py,
+        rx: size * 0.07 * t,
+        ry: size * 0.04 * t,
+        opacity: 0.88 * t,
+        transform: `rotate(${angle}, ${px}, ${py})`,
+      };
+    }),
+  );
+
+  // Sparkle dots (3)
+  const sparkleAngles = [0, 120, 240];
+  const sparkleProps = sparkleAngles.map((angle) =>
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    useAnimatedProps(() => {
+      const t = bloomT.value;
+      const rad = (angle * Math.PI) / 180;
+      const dist = size * 0.28 * t;
+      return {
+        cx: cx + Math.cos(rad) * dist,
+        cy: bloomCY + Math.sin(rad) * dist,
+        r: size * 0.022 * t,
+        opacity: 0.6 * t,
+      };
+    }),
+  );
+
+  const pct = Math.round(growth * 100);
 
   return (
-    <View style={[styles.container, { width: size, height: size }]}>
+    <View
+      style={[styles.container, { width: size, height: size }]}
+      accessibilityLabel={`Trust plant: ${pct}% grown`}
+      accessibilityRole="image"
+    >
       <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        {/* Background glow ring */}
-        <Circle
+        {/* Glow ring */}
+        <ACircle
+          animatedProps={glowProps}
           cx={cx}
           cy={size / 2}
           r={size * 0.43}
           fill="none"
-          stroke={colors.primary}
+          stroke={primaryGold}
           strokeWidth={2.5}
-          opacity={glowOp}
           strokeDasharray="6 4"
         />
 
@@ -137,7 +391,7 @@ export const AnimatedTrustPlant: React.FC<AnimatedTrustPlantProps> = ({
           cy={soilY + size * 0.04}
           rx={size * 0.32}
           ry={size * 0.09}
-          fill={soilMoundColor}
+          fill={soilLight}
           opacity={0.55}
         />
         <Ellipse
@@ -145,159 +399,74 @@ export const AnimatedTrustPlant: React.FC<AnimatedTrustPlantProps> = ({
           cy={soilY + size * 0.025}
           rx={size * 0.22}
           ry={size * 0.055}
-          fill={soilColor}
+          fill={soilDark}
           opacity={0.6}
         />
 
-        {/* STEM — drawn as a line from soil to stemCurrentTipY */}
-        {stemH > 0 && (
-          <Path
-            d={`M ${cx} ${soilY} Q ${cx + size * 0.035} ${(soilY + stemCurrentTipY) / 2} ${cx} ${stemCurrentTipY}`}
-            stroke={stemColor}
-            strokeWidth={size * 0.048}
-            strokeLinecap="round"
-            fill="none"
+        {/* Seed — two halves that crack apart */}
+        <AEllipse animatedProps={seedLeftProps} fill={stemColor} />
+        <AEllipse animatedProps={seedRightProps} fill={stemColor} />
+        {/* Tiny sprout nub emerging from crack */}
+        <AEllipse animatedProps={seedSproutProps} fill={leafColor} />
+
+        {/* Stem */}
+        <APath
+          animatedProps={stemProps}
+          stroke={stemColor}
+          strokeWidth={size * 0.048}
+          strokeLinecap="round"
+          fill="none"
+        />
+
+        {/* Leaf 1 — left */}
+        <APath
+          animatedProps={leaf1PetioleProps}
+          stroke={stemColor}
+          strokeWidth={size * 0.028}
+          strokeLinecap="round"
+          fill="none"
+        />
+        <AEllipse
+          animatedProps={leaf1BladeProps}
+          fill={leafColor}
+          transform={`rotate(-40, ${cx - size * 0.22}, ${soilY - size * 0.14})`}
+        />
+
+        {/* Leaf 2 — right */}
+        <APath
+          animatedProps={leaf2PetioleProps}
+          stroke={stemColor}
+          strokeWidth={size * 0.028}
+          strokeLinecap="round"
+          fill="none"
+        />
+        <AEllipse
+          animatedProps={leaf2BladeProps}
+          fill={leafColor}
+          transform={`rotate(35, ${cx + size * 0.2}, ${soilY - size * 0.2})`}
+        />
+
+        {/* Bloom petals */}
+        {petalAngles.map((_, i) => (
+          <AEllipse
+            key={`petal-${i}`}
+            animatedProps={petalProps[i]}
+            fill={i % 2 === 0 ? primaryGold : amberPetal}
           />
-        )}
+        ))}
 
-        {/* LEAF 1 — left, grows from mid-stem */}
-        {leaf1S > 0 && stemH > 0 && (
-          <G>
-            {/* Petiole */}
-            <Path
-              d={`M ${cx} ${leaf1AnchorY} Q ${cx - size * 0.12 * leaf1S} ${leaf1AnchorY - size * 0.04 * leaf1S} ${cx - size * 0.2 * leaf1S} ${leaf1AnchorY - size * 0.1 * leaf1S}`}
-              stroke={stemColor}
-              strokeWidth={size * 0.028}
-              strokeLinecap="round"
-              fill="none"
-            />
-            {/* Leaf blade */}
-            <Ellipse
-              cx={cx - size * 0.22 * leaf1S}
-              cy={leaf1AnchorY - size * 0.12 * leaf1S}
-              rx={size * 0.11 * leaf1S}
-              ry={size * 0.062 * leaf1S}
-              fill={leafColor}
-              opacity={0.9}
-              transform={`rotate(-40, ${cx - size * 0.22 * leaf1S}, ${leaf1AnchorY - size * 0.12 * leaf1S})`}
-            />
-            {/* Leaf vein */}
-            <Path
-              d={`M ${cx - size * 0.13 * leaf1S} ${leaf1AnchorY - size * 0.06 * leaf1S} L ${cx - size * 0.27 * leaf1S} ${leaf1AnchorY - size * 0.17 * leaf1S}`}
-              stroke={leafHighlight}
-              strokeWidth={size * 0.012}
-              strokeLinecap="round"
-              opacity={0.6}
-            />
-          </G>
-        )}
+        {/* Bloom center */}
+        <ACircle animatedProps={bloomCenterProps} fill={primaryGold} />
+        <ACircle animatedProps={bloomDotProps} fill="#1A1500" />
 
-        {/* LEAF 2 — right */}
-        {leaf2S > 0 && stemH > 0 && (
-          <G>
-            <Path
-              d={`M ${cx} ${leaf1AnchorY - size * 0.1 * stemH} Q ${cx + size * 0.1 * leaf2S} ${leaf1AnchorY - size * 0.14 * leaf2S} ${cx + size * 0.18 * leaf2S} ${leaf1AnchorY - size * 0.22 * leaf2S}`}
-              stroke={stemColor}
-              strokeWidth={size * 0.028}
-              strokeLinecap="round"
-              fill="none"
-            />
-            <Ellipse
-              cx={cx + size * 0.2 * leaf2S}
-              cy={leaf1AnchorY - size * 0.24 * leaf2S}
-              rx={size * 0.1 * leaf2S}
-              ry={size * 0.058 * leaf2S}
-              fill={leafColor}
-              opacity={0.88}
-              transform={`rotate(35, ${cx + size * 0.2 * leaf2S}, ${leaf1AnchorY - size * 0.24 * leaf2S})`}
-            />
-            <Path
-              d={`M ${cx + size * 0.12 * leaf2S} ${leaf1AnchorY - size * 0.14 * leaf2S} L ${cx + size * 0.25 * leaf2S} ${leaf1AnchorY - size * 0.28 * leaf2S}`}
-              stroke={leafHighlight}
-              strokeWidth={size * 0.012}
-              strokeLinecap="round"
-              opacity={0.6}
-            />
-          </G>
-        )}
-
-        {/* BLOOM — rotating petals */}
-        {bloomS > 0 && (
-          <G>
-            {/* Rotating outer petals */}
-            {[0, 45, 90, 135, 180, 225, 270, 315].map((angle, i) => {
-              const rotated = ((angle + petalRot) % 360);
-              const rad = (rotated * Math.PI) / 180;
-              const petalDist = size * 0.13 * bloomS;
-              const px = cx + Math.cos(rad) * petalDist;
-              const py = bloomCY + Math.sin(rad) * petalDist;
-              return (
-                <Ellipse
-                  key={i}
-                  cx={px}
-                  cy={py}
-                  rx={size * 0.072 * bloomS}
-                  ry={size * 0.042 * bloomS}
-                  fill={i % 2 === 0 ? colors.primary : '#FF8C00'}
-                  opacity={0.88}
-                  transform={`rotate(${rotated}, ${px}, ${py})`}
-                />
-              );
-            })}
-            {/* Bloom center disc */}
-            <Circle
-              cx={cx}
-              cy={bloomCY}
-              r={size * 0.09 * bloomS}
-              fill={colors.primary}
-            />
-            {/* Bloom center dot */}
-            <Circle
-              cx={cx}
-              cy={bloomCY}
-              r={size * 0.045 * bloomS}
-              fill="#1A1500"
-            />
-            {/* Sparkle dots */}
-            {[0, 120, 240].map((angle, i) => {
-              const rad = (angle * Math.PI) / 180;
-              const sparkDist = size * 0.28 * bloomS;
-              return (
-                <Circle
-                  key={i}
-                  cx={cx + Math.cos(rad) * sparkDist}
-                  cy={bloomCY + Math.sin(rad) * sparkDist}
-                  r={size * 0.025 * bloomS}
-                  fill={colors.primary}
-                  opacity={0.7}
-                />
-              );
-            })}
-          </G>
-        )}
-
-        {/* SEED — shown when stage === 0 */}
-        {stage === 0 && (
-          <G>
-            <Ellipse
-              cx={cx}
-              cy={soilY - size * 0.04}
-              rx={size * 0.12 * seedS}
-              ry={size * 0.075 * seedS}
-              fill={stemColor}
-              opacity={0.9}
-            />
-            <Ellipse
-              cx={cx + size * 0.02}
-              cy={soilY - size * 0.06}
-              rx={size * 0.055 * seedS}
-              ry={size * 0.035 * seedS}
-              fill={leafHighlight}
-              opacity={0.65}
-              transform={`rotate(-22, ${cx + size * 0.02}, ${soilY - size * 0.06})`}
-            />
-          </G>
-        )}
+        {/* Sparkle dots */}
+        {sparkleAngles.map((_, i) => (
+          <ACircle
+            key={`sparkle-${i}`}
+            animatedProps={sparkleProps[i]}
+            fill={primaryGold}
+          />
+        ))}
       </Svg>
     </View>
   );

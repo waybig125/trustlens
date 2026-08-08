@@ -1,125 +1,175 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Shield, Moon, Sun, LogOut } from 'lucide-react-native';
+import { useRouter, useSegments } from 'expo-router';
+import { Shield, Sun, Moon, LogOut, ShieldCheck, UserCheck, ArrowLeft } from 'lucide-react-native';
 import { useApp } from '../context/AppContext';
-import { useRouter } from 'expo-router';
 
 export const Header: React.FC = () => {
-  const { isDarkMode, toggleTheme, isOfficerMode, toggleRole, user, logout, colors } = useApp();
   const router = useRouter();
+  const segments = useSegments();
+  const { isDarkMode, toggleTheme, user, logout, isOfficerMode, toggleRole } = useApp();
 
-  const handleLogout = () => {
-    logout();
-    router.replace('/login');
-  };
+  const isLoginScreen = (segments[0] as string) === 'login';
+  const showBackButton = segments.length > 0 && !isLoginScreen;
+
+  if (isLoginScreen) return null;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
-      <View style={styles.brandRow}>
-        <View style={[styles.logoBadge, { backgroundColor: colors.primary }]}>
-          <Shield size={18} color="#121212" strokeWidth={2.5} />
-        </View>
-        <Text style={[styles.title, { color: colors.text, fontFamily: colors.headlineFont }]}>TrustLens</Text>
-      </View>
-
-      <View style={styles.actionRow}>
-        {user && (
+    <View
+      style={[
+        styles.header,
+        {
+          backgroundColor: isDarkMode ? '#12110E' : '#F7F5F0',
+          borderBottomColor: isDarkMode ? 'rgba(255, 215, 0, 0.15)' : '#E5E1D8',
+        },
+      ]}
+      accessibilityRole="header"
+    >
+      <View style={styles.leftGroup}>
+        {showBackButton && (
           <TouchableOpacity
-            style={[styles.roleBadge, { backgroundColor: colors.surface, borderColor: colors.border }]}
-            onPress={toggleRole}
-            activeOpacity={0.7}>
-            <View style={[styles.roleDot, { backgroundColor: colors.primary }]} />
-            <Text style={[styles.roleText, { color: colors.primary, fontFamily: colors.bodyFontBold }]}>
-              {isOfficerMode ? 'OFFICER MODE' : 'APPLICANT MODE'}
-            </Text>
+            style={styles.headerBtn}
+            onPress={() => router.back()}
+            activeOpacity={0.7}
+            accessibilityLabel="Go back"
+            accessibilityRole="button"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <ArrowLeft size={20} color={isDarkMode ? '#FFD700' : '#121212'} />
           </TouchableOpacity>
         )}
 
         <TouchableOpacity
-          style={[styles.themeButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
-          onPress={toggleTheme}
-          activeOpacity={0.7}>
-          {isDarkMode ? (
-            <Moon size={18} color={colors.primary} />
-          ) : (
-            <Sun size={18} color={colors.primary} />
-          )}
+          style={styles.logoRow}
+          onPress={() => router.replace('/')}
+          activeOpacity={0.8}
+          accessibilityLabel="TrustLens Home"
+          accessibilityRole="button"
+        >
+          <View style={styles.logoIcon}>
+            <Shield size={22} color="#FFD700" strokeWidth={2.5} />
+          </View>
+          <Text style={[styles.brandText, { color: isDarkMode ? '#F7F5F0' : '#121212' }]}>
+            Trust<Text style={{ color: '#FFD700' }}>Lens</Text>
+          </Text>
         </TouchableOpacity>
-
-        {user && (
-          <TouchableOpacity
-            style={[styles.logoutButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
-            onPress={handleLogout}
-            activeOpacity={0.7}>
-            <LogOut size={16} color={colors.errorRed} />
-          </TouchableOpacity>
-        )}
       </View>
+
+      {user && (
+        <View style={styles.rightGroup}>
+          <TouchableOpacity
+            style={[
+              styles.roleBadge,
+              {
+                backgroundColor: isOfficerMode ? 'rgba(255, 215, 0, 0.15)' : 'rgba(78, 158, 106, 0.15)',
+                borderColor: isOfficerMode ? '#FFD700' : '#4E9E6A',
+              },
+            ]}
+            onPress={toggleRole}
+            activeOpacity={0.75}
+            accessibilityLabel={`Switch mode. Current mode: ${isOfficerMode ? 'Officer' : 'Applicant'}`}
+            accessibilityRole="button"
+          >
+            {isOfficerMode ? (
+              <ShieldCheck size={14} color="#FFD700" />
+            ) : (
+              <UserCheck size={14} color="#4E9E6A" />
+            )}
+            <Text
+              style={[
+                styles.roleText,
+                { color: isOfficerMode ? '#FFD700' : (isDarkMode ? '#81C784' : '#1B6B35') },
+              ]}
+              numberOfLines={1}
+            >
+              {isOfficerMode ? 'Officer' : 'Applicant'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.headerBtn}
+            onPress={toggleTheme}
+            activeOpacity={0.7}
+            accessibilityLabel={`Switch to ${isDarkMode ? 'light' : 'dark'} mode`}
+            accessibilityRole="button"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            {isDarkMode ? (
+              <Sun size={20} color="#FFD700" />
+            ) : (
+              <Moon size={20} color="#121212" />
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.headerBtn}
+            onPress={logout}
+            activeOpacity={0.7}
+            accessibilityLabel="Log out"
+            accessibilityRole="button"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <LogOut size={18} color={isDarkMode ? '#8A8478' : '#767676'} />
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    height: 60,
+  header: {
+    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     borderBottomWidth: 1,
   },
-  brandRow: {
+  leftGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  logoBadge: {
+  logoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  logoIcon: {
     width: 32,
     height: 32,
-    borderRadius: 8,
+    borderRadius: 16,
+    backgroundColor: '#1C1A17',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  title: {
-    fontSize: 20,
-    letterSpacing: -0.5,
+  brandText: {
+    fontSize: 18,
+    fontFamily: 'Sora_700Bold',
   },
-  actionRow: {
+  rightGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   roleBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
+    minHeight: 36,
+    borderRadius: 18,
     borderWidth: 1,
     gap: 6,
   },
-  roleDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
   roleText: {
-    fontSize: 10,
-    letterSpacing: 1,
+    fontSize: 11,
+    fontFamily: 'HankenGrotesk_700Bold',
   },
-  themeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoutButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1,
+  headerBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },

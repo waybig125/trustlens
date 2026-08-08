@@ -9,9 +9,10 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Search, Flame, Sprout } from 'lucide-react-native';
+import { Search, Flame, Sprout, Inbox } from 'lucide-react-native';
 import { useApp } from '../context/AppContext';
-import { Applicant, RiskLevel } from '../types';
+import { RiskLevel } from '../types';
+import { FadeInView } from '../components/AnimatedContainers';
 
 export default function OfficerDashboardScreen() {
   const router = useRouter();
@@ -47,7 +48,7 @@ export default function OfficerDashboardScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Top Stats Banner */}
-      <View style={styles.statsContainer}>
+      <FadeInView delay={50} style={styles.statsContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statsScroll}>
           <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <Text style={[styles.statTitle, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
@@ -81,10 +82,10 @@ export default function OfficerDashboardScreen() {
             </Text>
           </View>
         </ScrollView>
-      </View>
+      </FadeInView>
 
       {/* Search Bar */}
-      <View style={styles.searchPadding}>
+      <FadeInView delay={100} style={styles.searchPadding}>
         <View style={[styles.searchBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Search size={18} color={colors.neutral} />
           <TextInput
@@ -93,12 +94,13 @@ export default function OfficerDashboardScreen() {
             placeholderTextColor={colors.neutral}
             value={searchQuery}
             onChangeText={setSearchQuery}
+            accessibilityLabel="Search applicant name, ID, or risk flag"
           />
         </View>
-      </View>
+      </FadeInView>
 
-      {/* Filter Pills */}
-      <View style={styles.filterContainer}>
+      {/* Filter Pills with 44px touch targets */}
+      <FadeInView delay={150} style={styles.filterContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
           {filters.map((filter) => {
             const isSelected = selectedFilter === filter;
@@ -113,7 +115,11 @@ export default function OfficerDashboardScreen() {
                   },
                 ]}
                 onPress={() => setSelectedFilter(filter)}
-                activeOpacity={0.75}>
+                activeOpacity={0.75}
+                accessibilityLabel={`Filter by ${filter}`}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isSelected }}
+              >
                 <Text
                   style={[
                     styles.filterChipText,
@@ -128,70 +134,80 @@ export default function OfficerDashboardScreen() {
             );
           })}
         </ScrollView>
-      </View>
+      </FadeInView>
 
-      {/* Crypto-Wallet Token List Style Cards */}
-      <FlatList
-        data={filteredApplicants}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
-        renderItem={({ item }) => {
-          return (
-            <TouchableOpacity
-              style={[styles.applicantCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
-              onPress={() => router.push(`/edd-review/${item.id}`)}
-              activeOpacity={0.85}>
-              {(() => {
-                const risk = getRiskColors(item.riskLevel);
-                const riskLabel =
-                  item.riskLevel === RiskLevel.HIGH ? 'HIGH RISK' :
-                  item.riskLevel === RiskLevel.MEDIUM ? 'MEDIUM RISK' :
-                  item.status === 'Auto-Approved' ? 'AUTO-APPROVED' : 'LOW RISK';
-                return (
-                  <>
-                    <View style={[styles.iconCircle, { backgroundColor: risk.surface }]}>
-                      {item.riskLevel === RiskLevel.HIGH ? (
-                        <Flame size={26} color={risk.text} />
-                      ) : (
-                        <Sprout size={26} color={risk.text} />
-                      )}
-                    </View>
+      {/* Applicant List or Empty State */}
+      {filteredApplicants.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Inbox size={48} color={colors.neutral} style={{ marginBottom: 12 }} />
+          <Text style={[styles.emptyTitle, { color: colors.text, fontFamily: colors.headlineFont }]}>
+            No Applicants Found
+          </Text>
+          <Text style={[styles.emptySub, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
+            No applicants match your current search or risk filter criteria.
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={filteredApplicants}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
+          renderItem={({ item }) => {
+            const risk = getRiskColors(item.riskLevel);
+            const riskLabel =
+              item.riskLevel === RiskLevel.HIGH ? 'HIGH RISK' :
+              item.riskLevel === RiskLevel.MEDIUM ? 'MEDIUM RISK' :
+              item.status === 'Auto-Approved' ? 'AUTO-APPROVED' : 'LOW RISK';
 
-                    <View style={styles.cardInfo}>
-                      <View style={styles.cardHeaderRow}>
-                        <Text style={[styles.applicantName, { color: colors.text, fontFamily: colors.headlineFont }]} numberOfLines={1}>
-                          {item.name}
-                        </Text>
+            return (
+              <TouchableOpacity
+                style={[styles.applicantCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                onPress={() => router.push(`/edd-review/${item.id}`)}
+                activeOpacity={0.85}
+                accessibilityLabel={`Review applicant ${item.name}, ${riskLabel}`}
+                accessibilityRole="button"
+              >
+                <View style={[styles.iconCircle, { backgroundColor: risk.surface }]}>
+                  {item.riskLevel === RiskLevel.HIGH ? (
+                    <Flame size={26} color={risk.text} />
+                  ) : (
+                    <Sprout size={26} color={risk.text} />
+                  )}
+                </View>
 
-                        <View style={[styles.riskBadge, { backgroundColor: risk.surface }]}>
-                          <Text style={[styles.riskBadgeText, { color: risk.text, fontFamily: colors.bodyFontBold }]}>
-                            {riskLabel}
-                          </Text>
-                        </View>
-                      </View>
+                <View style={styles.cardInfo}>
+                  <View style={styles.cardHeaderRow}>
+                    <Text style={[styles.applicantName, { color: colors.text, fontFamily: colors.headlineFont }]} numberOfLines={1}>
+                      {item.name}
+                    </Text>
 
-                      <Text style={[styles.cardSubtitle, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
-                        {item.riskLevel === RiskLevel.HIGH
-                          ? 'Income vs Transaction Intent Mismatch'
-                          : `${item.aiConfidence}% AI Confidence`}
+                    <View style={[styles.riskBadge, { backgroundColor: risk.surface }]}>
+                      <Text style={[styles.riskBadgeText, { color: risk.text, fontFamily: colors.bodyFontBold }]}>
+                        {riskLabel}
                       </Text>
                     </View>
+                  </View>
 
-                    <View style={styles.cardMeta}>
-                      <Text style={[styles.idText, { color: colors.neutral, fontFamily: colors.bodyFont }]}>
-                        ID: {item.id}
-                      </Text>
-                      <Text style={[styles.reviewLink, { color: colors.text, fontFamily: colors.bodyFontBold }]}>
-                        Review
-                      </Text>
-                    </View>
-                  </>
-                );
-              })()}
-            </TouchableOpacity>
-          );
-        }}
-      />
+                  <Text style={[styles.cardSubtitle, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
+                    {item.riskLevel === RiskLevel.HIGH
+                      ? 'Income vs Transaction Intent Mismatch'
+                      : `${item.aiConfidence}% AI Confidence`}
+                  </Text>
+                </View>
+
+                <View style={styles.cardMeta}>
+                  <Text style={[styles.idText, { color: colors.neutral, fontFamily: colors.bodyFont }]}>
+                    ID: {item.id}
+                  </Text>
+                  <Text style={[styles.reviewLink, { color: colors.text, fontFamily: colors.bodyFontBold }]}>
+                    Review
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          }}
+        />
+      )}
     </View>
   );
 }
@@ -253,13 +269,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   filterChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: 18,
+    minHeight: 44,
+    justifyContent: 'center',
+    borderRadius: 22,
     borderWidth: 1,
   },
   filterChipText: {
-    fontSize: 12,
+    fontSize: 13,
   },
   listContent: {
     paddingHorizontal: 20,
@@ -316,5 +333,21 @@ const styles = StyleSheet.create({
   },
   reviewLink: {
     fontSize: 12,
+  },
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  emptySub: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });

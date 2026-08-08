@@ -1,12 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   ScrollView,
+  KeyboardAvoidingView,
+  Platform,
   StyleSheet,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
@@ -16,423 +19,428 @@ import {
   Landmark,
   Briefcase,
   ArrowRight,
+  ArrowLeft,
+  CheckCircle2,
 } from 'lucide-react-native';
 import { useApp } from '../context/AppContext';
 import { AnimatedTrustPlant } from '../components/AnimatedTrustPlant';
-import { FadeInView, PulseView } from '../components/AnimatedContainers';
-import { AnimatePresence, MotiView } from 'moti';
+import { FadeInView } from '../components/AnimatedContainers';
+import { MotiView } from 'moti';
+import { AnimatePresence } from 'moti';
+
+// ── Field definitions ────────────────────────────────────────────
+interface FieldDef {
+  key: string;
+  label: string;
+  placeholder: string;
+  keyboardType: 'default' | 'number-pad' | 'email-address';
+  required: boolean;
+  step: 1 | 2 | 3;
+}
+
+const FIELDS: FieldDef[] = [
+  { key: 'name', label: 'Full Name', placeholder: 'e.g. Amina Bibi', keyboardType: 'default', required: true, step: 1 },
+  { key: 'idNum', label: 'CNIC / ID Number', placeholder: 'e.g. 35202-1234567-1', keyboardType: 'number-pad', required: true, step: 1 },
+  { key: 'address', label: 'Address & City', placeholder: 'e.g. House #12, Block B, Lahore', keyboardType: 'default', required: false, step: 1 },
+  { key: 'employment', label: 'Employment Type', placeholder: 'e.g. Teacher / Freelancer', keyboardType: 'default', required: true, step: 2 },
+  { key: 'income', label: 'Declared Monthly Income', placeholder: 'e.g. PKR 60,000/month', keyboardType: 'default', required: true, step: 2 },
+  { key: 'behavior', label: 'Expected Transaction Volume', placeholder: 'e.g. PKR 40,000/month', keyboardType: 'default', required: true, step: 3 },
+  { key: 'intent', label: 'Account Purpose', placeholder: 'e.g. Savings & Local Transfers', keyboardType: 'default', required: true, step: 3 },
+];
+
+const TOTAL_FIELDS = FIELDS.length;
+const REQUIRED_FIELDS = FIELDS.filter((f) => f.required);
 
 export default function ApplicantFormScreen() {
   const router = useRouter();
-  const { colors, submitApplicantForm } = useApp();
+  const { colors, isDarkMode, submitApplicantForm } = useApp();
 
   const [activeStep, setActiveStep] = useState<1 | 2 | 3>(1);
 
-  // Step 1: Identity
-  const [name, setName] = useState('');
-  const [idNum, setIdNum] = useState('');
-  const [address, setAddress] = useState('');
-
-  // Step 2: Income
-  const [employment, setEmployment] = useState('');
-  const [income, setIncome] = useState('');
-
-  // Step 3: Business Purpose
-  const [behavior, setBehavior] = useState('');
-  const [intent, setIntent] = useState('');
-
+  // Field values keyed by field key
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const step1Complete = name.trim().length > 0 && idNum.trim().length > 0;
-  const step2Complete = employment.trim().length > 0 && income.trim().length > 0;
-  const step3Complete = behavior.trim().length > 0 && intent.trim().length > 0;
-
-  const currentProgressPercent =
-    activeStep === 1 ? 33 : activeStep === 2 ? 66 : 100;
-
-  const handleNextOrSubmit = () => {
-    if (activeStep === 1) {
-      setActiveStep(2);
-    } else if (activeStep === 2) {
-      setActiveStep(3);
-    } else {
-      setIsSubmitting(true);
-      setTimeout(() => {
-        submitApplicantForm({
-          'Full Name': name || 'Amina Bibi',
-          'CNIC / ID': idNum || '35202-1234567-1',
-          Employment: employment || 'Teacher',
-          Income: income || 'PKR 60,000/month',
-          Behavior: behavior || 'PKR 40,000/month',
-          Intent: intent || 'Savings & Local Transfers',
-          Address: address || 'House #12, Block B, Lahore',
-        });
-        setIsSubmitting(false);
-        router.replace('/applicant-status');
-      }, 1500);
+  const setValue = (key: string, val: string) => {
+    setValues((prev) => ({ ...prev, [key]: val }));
+    // Clear error when user types
+    if (errors[key]) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
     }
   };
 
-  return (
-    <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}>
-      {/* Top Header Row */}
-      <FadeInView delay={50} fromY={-10} style={styles.topHeader}>
-        <Text style={[styles.screenTitle, { color: colors.text, fontFamily: colors.headlineFont }]}>
-          KYC Verification
-        </Text>
-        <Text style={[styles.stepCounterText, { color: colors.bodyText, fontFamily: colors.bodyFontBold }]}>
-          Step {activeStep} of 3 ({currentProgressPercent}%)
-        </Text>
-      </FadeInView>
+  // ── Completion tracking ─────────────────────────────────────────
+  const filledCount = useMemo(
+    () => FIELDS.filter((f) => (values[f.key] || '').trim().length > 0).length,
+    [values],
+  );
+  const growth = filledCount / TOTAL_FIELDS;
+  const progressPercent = Math.round(growth * 100);
 
-      {/* Progress Bar Track */}
-      <View style={[styles.progressTrack, { backgroundColor: colors.stepTrack }]}>
-        <MotiView
-          animate={{ width: `${currentProgressPercent}%` }}
-          transition={{ type: 'spring', damping: 15, stiffness: 100 }}
-          style={[styles.progressFill, { backgroundColor: colors.primary }]}
+  const stepFields = (step: number) => FIELDS.filter((f) => f.step === step);
+
+  const isStepComplete = (step: number) =>
+    stepFields(step)
+      .filter((f) => f.required)
+      .every((f) => (values[f.key] || '').trim().length > 0);
+
+  const step1Complete = isStepComplete(1);
+  const step2Complete = isStepComplete(2);
+  const step3Complete = isStepComplete(3);
+  const allRequiredComplete = REQUIRED_FIELDS.every(
+    (f) => (values[f.key] || '').trim().length > 0,
+  );
+
+  // ── Validation ──────────────────────────────────────────────────
+  const validateStep = (step: number): boolean => {
+    const newErrors: Record<string, string> = {};
+    stepFields(step)
+      .filter((f) => f.required)
+      .forEach((f) => {
+        if (!(values[f.key] || '').trim()) {
+          newErrors[f.key] = `${f.label} is required`;
+        }
+      });
+    setErrors((prev) => ({ ...prev, ...newErrors }));
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // ── Step navigation with gating ─────────────────────────────────
+  const tryGoToStep = (target: 1 | 2 | 3) => {
+    if (target === activeStep) return;
+    // Can always go back
+    if (target < activeStep) {
+      setActiveStep(target);
+      return;
+    }
+    // Going forward requires current step validation
+    if (target === 2 && !validateStep(1)) return;
+    if (target === 3) {
+      if (!validateStep(1)) { setActiveStep(1); return; }
+      if (!validateStep(2)) { setActiveStep(2); return; }
+    }
+    setActiveStep(target);
+  };
+
+  const handleNextOrSubmit = () => {
+    if (activeStep === 1) {
+      if (validateStep(1)) setActiveStep(2);
+    } else if (activeStep === 2) {
+      if (validateStep(2)) setActiveStep(3);
+    } else {
+      if (!validateStep(3)) return;
+      if (!allRequiredComplete) {
+        Alert.alert('Incomplete', 'Please fill all required fields before submitting.');
+        return;
+      }
+      setIsSubmitting(true);
+      setTimeout(() => {
+        // Submit exactly what the user typed — no fake data substitution
+        const formData: Record<string, string> = {};
+        FIELDS.forEach((f) => {
+          const val = (values[f.key] || '').trim();
+          if (val) formData[f.label] = val;
+        });
+        submitApplicantForm(formData);
+        setIsSubmitting(false);
+        router.replace('/applicant-status');
+      }, 1200);
+    }
+  };
+
+  // ── Render helpers ──────────────────────────────────────────────
+  const renderField = (field: FieldDef) => {
+    const val = values[field.key] || '';
+    const err = errors[field.key];
+    return (
+      <View key={field.key} style={styles.inputGroup}>
+        <Text style={[styles.inputLabel, { color: colors.bodyText, fontFamily: colors.bodyFontBold }]}>
+          {field.label}
+          {field.required && <Text style={{ color: colors.errorRed }}> *</Text>}
+        </Text>
+        <TextInput
+          style={[
+            styles.textInput,
+            {
+              backgroundColor: colors.surfaceElevated,
+              color: colors.text,
+              borderColor: err ? colors.errorRed : colors.border,
+              fontFamily: colors.bodyFont,
+            },
+          ]}
+          placeholder={field.placeholder}
+          placeholderTextColor={colors.neutral}
+          value={val}
+          onChangeText={(t) => setValue(field.key, t)}
+          keyboardType={field.keyboardType}
+          accessibilityLabel={field.label}
+          autoCapitalize={field.keyboardType === 'email-address' ? 'none' : 'words'}
         />
+        {err && (
+          <Text style={[styles.errorText, { color: colors.errorRed, fontFamily: colors.bodyFont }]}>
+            {err}
+          </Text>
+        )}
       </View>
+    );
+  };
 
-      {/* Animated Trust Plant Hero */}
-      <FadeInView delay={150} scale={0.85} style={styles.heroCircleWrapper}>
-        <PulseView
-          style={[
-            styles.heroCircle,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-          ]}>
-          <AnimatedTrustPlant
-            stage={activeStep === 1 ? 1 : activeStep === 2 ? 2 : 3}
-            size={120}
-          />
-        </PulseView>
-      </FadeInView>
+  const stepIcon = (step: number) => {
+    if (step === 1) return <User size={22} color={colors.primaryDark} />;
+    if (step === 2) return <Landmark size={22} color={colors.primaryDark} />;
+    return <Briefcase size={22} color={colors.primaryDark} />;
+  };
 
-      {/* Hero Headline & Subtitle */}
-      <FadeInView delay={250} fromY={15} style={styles.textGroup}>
-        <Text style={[styles.headline, { color: colors.text, fontFamily: colors.headlineFont }]}>
-          Grow Your Account
-        </Text>
-        <Text style={[styles.subtitle, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
-          Provide a few details to unlock full trading capabilities and increased transaction limits.
-        </Text>
-      </FadeInView>
+  const stepTitle = (step: number) => {
+    if (step === 1) return 'Identity Details';
+    if (step === 2) return 'Income Source';
+    return 'Business Purpose';
+  };
 
-      {/* STEP 1 CARD */}
-      <FadeInView delay={300}>
-        <TouchableOpacity
-          style={[
-            styles.stepCard,
-            {
-              backgroundColor: colors.surface,
-              borderColor: activeStep === 1 ? colors.primary : colors.border,
-            },
-          ]}
-          onPress={() => setActiveStep(1)}
-          activeOpacity={0.85}>
-          <View style={styles.stepCardLeft}>
-            <View style={[styles.stepIconBox, { backgroundColor: colors.iconBadgeBg }]}>
-              <User size={22} color={colors.primaryDark} />
-            </View>
-            <View style={styles.stepTitleGroup}>
-              <Text style={[styles.stepTag, { color: colors.bodyText, fontFamily: colors.bodyFontBold }]}>
-                STEP 1
-              </Text>
-              <Text style={[styles.stepTitle, { color: colors.text, fontFamily: colors.headlineFont }]}>
-                Identity Details
-              </Text>
-              {activeStep !== 1 && (
-                <Text style={[styles.stepSub, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
-                  {step1Complete ? 'Verified Profile' : 'Verify your government ID'}
-                </Text>
-              )}
-            </View>
-          </View>
-          <ChevronRight size={20} color={colors.neutral} />
-        </TouchableOpacity>
-      </FadeInView>
+  const stepSubtitle = (step: number) => {
+    const complete = isStepComplete(step);
+    if (step === 1) return complete ? 'Identity verified ✓' : 'Verify your government ID';
+    if (step === 2) return complete ? 'Income verified ✓' : 'Help us tailor your limits';
+    return complete ? 'Purpose defined ✓' : 'How you\'ll use this account';
+  };
 
-      <AnimatePresence>
-        {activeStep === 1 && (
-          <MotiView
-            from={{ opacity: 0, height: 0, scale: 0.95 }}
-            animate={{ opacity: 1, height: 'auto', scale: 1 }}
-            exit={{ opacity: 0, height: 0, scale: 0.95 }}
-            transition={{ type: 'spring', damping: 18, stiffness: 120 }}
-            style={styles.formContainer}
-          >
-            <View style={styles.inputGroup}>
-              <Text style={[styles.inputLabel, { color: colors.bodyText, fontFamily: colors.bodyFontBold }]}>
-                Full Name
-              </Text>
-              <TextInput
-                style={[styles.textInput, { backgroundColor: colors.surfaceElevated, color: colors.text, borderColor: colors.border, fontFamily: colors.bodyFont }]}
-                placeholder="e.g. Amina Bibi"
-                placeholderTextColor={colors.neutral}
-                value={name}
-                onChangeText={setName}
-              />
-            </View>
+  const isStepLocked = (step: number) => {
+    if (step === 1) return false;
+    if (step === 2) return !step1Complete;
+    return !step1Complete || !step2Complete;
+  };
 
-            <View style={styles.inputGroup}>
-              <Text style={[styles.inputLabel, { color: colors.bodyText, fontFamily: colors.bodyFontBold }]}>
-                CNIC / ID Number
-              </Text>
-              <TextInput
-                style={[styles.textInput, { backgroundColor: colors.surfaceElevated, color: colors.text, borderColor: colors.border, fontFamily: colors.bodyFont }]}
-                placeholder="e.g. 35202-1234567-1"
-                placeholderTextColor={colors.neutral}
-                value={idNum}
-                onChangeText={setIdNum}
-              />
-            </View>
+  const renderStepCard = (step: 1 | 2 | 3) => {
+    const locked = isStepLocked(step);
+    const isActive = activeStep === step;
+    const complete = isStepComplete(step);
 
-            <View style={styles.inputGroup}>
-              <Text style={[styles.inputLabel, { color: colors.bodyText, fontFamily: colors.bodyFontBold }]}>
-                Address & City Verification
-              </Text>
-              <TextInput
-                style={[styles.textInput, { backgroundColor: colors.surfaceElevated, color: colors.text, borderColor: colors.border, fontFamily: colors.bodyFont }]}
-                placeholder="e.g. House #12, Block B, Lahore"
-                placeholderTextColor={colors.neutral}
-                value={address}
-                onChangeText={setAddress}
-              />
-            </View>
-          </MotiView>
-        )}
-      </AnimatePresence>
-
-      {/* STEP 2 CARD */}
-      <FadeInView delay={350}>
-        <TouchableOpacity
-          style={[
-            styles.stepCard,
-            {
-              backgroundColor: colors.surface,
-              borderColor: activeStep === 2 ? colors.primary : colors.border,
-              opacity: activeStep < 2 && !step1Complete ? 0.6 : 1,
-            },
-          ]}
-          onPress={() => setActiveStep(2)}
-          activeOpacity={0.85}>
-          <View style={styles.stepCardLeft}>
-            <View style={[styles.stepIconBox, { backgroundColor: colors.iconBadgeBg }]}>
-              <Landmark size={22} color={colors.primaryDark} />
-            </View>
-            <View style={styles.stepTitleGroup}>
-              <Text style={[styles.stepTag, { color: colors.bodyText, fontFamily: colors.bodyFontBold }]}>
-                STEP 2
-              </Text>
-              <Text style={[styles.stepTitle, { color: colors.text, fontFamily: colors.headlineFont }]}>
-                Income Source
-              </Text>
-              {activeStep !== 2 && (
-                <Text style={[styles.stepSub, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
-                  {step2Complete ? 'Income Verified' : 'Help us tailor your limits'}
-                </Text>
-              )}
-            </View>
-          </View>
-          {activeStep < 2 ? (
-            <Lock size={18} color={colors.neutral} />
-          ) : (
-            <ChevronRight size={20} color={colors.neutral} />
-          )}
-        </TouchableOpacity>
-      </FadeInView>
-
-      <AnimatePresence>
-        {activeStep === 2 && (
-          <MotiView
-            from={{ opacity: 0, height: 0, scale: 0.95 }}
-            animate={{ opacity: 1, height: 'auto', scale: 1 }}
-            exit={{ opacity: 0, height: 0, scale: 0.95 }}
-            transition={{ type: 'spring', damping: 18, stiffness: 120 }}
-            style={styles.formContainer}
-          >
-            <View style={styles.inputGroup}>
-              <Text style={[styles.inputLabel, { color: colors.bodyText, fontFamily: colors.bodyFontBold }]}>
-                Employment Type
-              </Text>
-              <TextInput
-                style={[styles.textInput, { backgroundColor: colors.surfaceElevated, color: colors.text, borderColor: colors.border, fontFamily: colors.bodyFont }]}
-                placeholder="e.g. Teacher / Freelancer / Shopkeeper"
-                placeholderTextColor={colors.neutral}
-                value={employment}
-                onChangeText={setEmployment}
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={[styles.inputLabel, { color: colors.bodyText, fontFamily: colors.bodyFontBold }]}>
-                Declared Monthly Income
-              </Text>
-              <TextInput
-                style={[styles.textInput, { backgroundColor: colors.surfaceElevated, color: colors.text, borderColor: colors.border, fontFamily: colors.bodyFont }]}
-                placeholder="e.g. PKR 60,000/month"
-                placeholderTextColor={colors.neutral}
-                value={income}
-                onChangeText={setIncome}
-              />
-            </View>
-          </MotiView>
-        )}
-      </AnimatePresence>
-
-      {/* STEP 3 CARD */}
-      <FadeInView delay={400}>
-        <TouchableOpacity
-          style={[
-            styles.stepCard,
-            {
-              backgroundColor: colors.surface,
-              borderColor: activeStep === 3 ? colors.primary : colors.border,
-              opacity: activeStep < 3 && !step2Complete ? 0.6 : 1,
-            },
-          ]}
-          onPress={() => setActiveStep(3)}
-          activeOpacity={0.85}>
-          <View style={styles.stepCardLeft}>
-            <View style={[styles.stepIconBox, { backgroundColor: colors.iconBadgeBg }]}>
-              <Briefcase size={22} color={colors.primaryDark} />
-            </View>
-            <View style={styles.stepTitleGroup}>
-              <Text style={[styles.stepTag, { color: colors.bodyText, fontFamily: colors.bodyFontBold }]}>
-                STEP 3
-              </Text>
-              <Text style={[styles.stepTitle, { color: colors.text, fontFamily: colors.headlineFont }]}>
-                Business Purpose
-              </Text>
-              {activeStep !== 3 && (
-                <Text style={[styles.stepSub, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
-                  {step3Complete ? 'Purpose Defined' : 'Define how you plan to use this account'}
-                </Text>
-              )}
-            </View>
-          </View>
-          {activeStep < 3 ? (
-            <Lock size={18} color={colors.neutral} />
-          ) : (
-            <ChevronRight size={20} color={colors.neutral} />
-          )}
-        </TouchableOpacity>
-      </FadeInView>
-
-      <AnimatePresence>
-        {activeStep === 3 && (
-          <MotiView
-            from={{ opacity: 0, height: 0, scale: 0.95 }}
-            animate={{ opacity: 1, height: 'auto', scale: 1 }}
-            exit={{ opacity: 0, height: 0, scale: 0.95 }}
-            transition={{ type: 'spring', damping: 18, stiffness: 120 }}
-            style={styles.formContainer}
-          >
-            <View style={styles.inputGroup}>
-              <Text style={[styles.inputLabel, { color: colors.bodyText, fontFamily: colors.bodyFontBold }]}>
-                Expected Transaction Behavior
-              </Text>
-              <TextInput
-                style={[styles.textInput, { backgroundColor: colors.surfaceElevated, color: colors.text, borderColor: colors.border, fontFamily: colors.bodyFont }]}
-                placeholder="e.g. PKR 40,000/month"
-                placeholderTextColor={colors.neutral}
-                value={behavior}
-                onChangeText={setBehavior}
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={[styles.inputLabel, { color: colors.bodyText, fontFamily: colors.bodyFontBold }]}>
-                Account Purpose
-              </Text>
-              <TextInput
-                style={[styles.textInput, { backgroundColor: colors.surfaceElevated, color: colors.text, borderColor: colors.border, fontFamily: colors.bodyFont }]}
-                placeholder="e.g. Savings & Local Transfers"
-                placeholderTextColor={colors.neutral}
-                value={intent}
-                onChangeText={setIntent}
-              />
-            </View>
-          </MotiView>
-        )}
-      </AnimatePresence>
-
-      {/* Footer Legal Terms Notice */}
-      <Text style={[styles.legalNotice, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
-        By continuing, you agree to our{' '}
-        <Text style={{ color: colors.warningOrange, fontFamily: colors.bodyFontBold }}>Terms</Text>{' '}
-        and{' '}
-        <Text style={{ color: colors.warningOrange, fontFamily: colors.bodyFontBold }}>
-          Privacy Policy
-        </Text>
-      </Text>
-
-      {/* Main Action Button */}
-      <FadeInView delay={450}>
-        <TouchableOpacity
-          style={[styles.nourishButton, { backgroundColor: colors.primary }]}
-          onPress={handleNextOrSubmit}
-          disabled={isSubmitting}
-          activeOpacity={0.85}>
-          {isSubmitting ? (
-            <ActivityIndicator color="#121212" />
-          ) : (
-            <>
-              <Text style={[styles.nourishButtonText, { fontFamily: colors.bodyFontBold }]}>
-                {activeStep === 3 ? 'Nourish & Submit Application' : 'Nourish & Continue'}
-              </Text>
-              <ArrowRight size={18} color="#121212" />
-            </>
-          )}
-        </TouchableOpacity>
-      </FadeInView>
-
+    return (
       <TouchableOpacity
-        style={styles.laterButton}
-        onPress={() => router.replace('/')}
-        activeOpacity={0.7}>
-        <Text style={[styles.laterText, { color: colors.text, fontFamily: colors.bodyFontBold }]}>
-          I'll do this later
-        </Text>
+        style={[
+          styles.stepCard,
+          {
+            backgroundColor: colors.surface,
+            borderColor: isActive ? colors.primary : colors.border,
+            opacity: locked ? 0.5 : 1,
+          },
+        ]}
+        onPress={() => {
+          if (locked) {
+            Alert.alert('Complete Previous Step', 'Please complete the current step first.');
+            return;
+          }
+          tryGoToStep(step);
+        }}
+        activeOpacity={0.85}
+        accessibilityLabel={`Step ${step}: ${stepTitle(step)}, ${locked ? 'locked' : complete ? 'complete' : 'incomplete'}`}
+        accessibilityRole="button"
+      >
+        <View style={styles.stepCardLeft}>
+          <View style={[styles.stepIconBox, { backgroundColor: colors.iconBadgeBg }]}>
+            {stepIcon(step)}
+          </View>
+          <View style={styles.stepTitleGroup}>
+            <Text style={[styles.stepTag, { color: colors.bodyText, fontFamily: colors.bodyFontBold }]}>
+              STEP {step}
+            </Text>
+            <Text style={[styles.stepTitle, { color: colors.text, fontFamily: colors.headlineFont }]}>
+              {stepTitle(step)}
+            </Text>
+            {!isActive && (
+              <Text style={[styles.stepSub, { color: complete ? colors.riskLow : colors.bodyText, fontFamily: colors.bodyFont }]}>
+                {stepSubtitle(step)}
+              </Text>
+            )}
+          </View>
+        </View>
+        {locked ? (
+          <Lock size={18} color={colors.neutral} />
+        ) : complete ? (
+          <CheckCircle2 size={20} color={colors.riskLow} />
+        ) : (
+          <ChevronRight size={20} color={colors.neutral} />
+        )}
       </TouchableOpacity>
-    </ScrollView>
+    );
+  };
+
+  const renderStepFields = (step: 1 | 2 | 3) => (
+    <AnimatePresence>
+      {activeStep === step && (
+        <MotiView
+          from={{ opacity: 0, scale: 0.97 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.97 }}
+          transition={{ type: 'spring', damping: 18, stiffness: 120 }}
+          style={styles.formContainer}
+        >
+          {stepFields(step).map(renderField)}
+        </MotiView>
+      )}
+    </AnimatePresence>
+  );
+
+  const canSubmit = activeStep === 3 && allRequiredComplete && !isSubmitting;
+
+  return (
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <ScrollView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Top Header */}
+        <FadeInView delay={50} fromY={-10} style={styles.topHeader}>
+          <Text
+            style={[styles.screenTitle, { color: colors.text, fontFamily: colors.headlineFont }]}
+            accessibilityRole="header"
+          >
+            KYC Verification
+          </Text>
+          <Text style={[styles.stepCounterText, { color: colors.bodyText, fontFamily: colors.bodyFontBold }]}>
+            {filledCount} of {TOTAL_FIELDS} fields ({progressPercent}%)
+          </Text>
+        </FadeInView>
+
+        {/* Progress Bar — animated by growth */}
+        <View style={[styles.progressTrack, { backgroundColor: colors.stepTrack }]}>
+          <MotiView
+            animate={{ width: `${progressPercent}%` as any }}
+            transition={{ type: 'spring', damping: 15, stiffness: 100 }}
+            style={[styles.progressFill, { backgroundColor: colors.primary }]}
+          />
+        </View>
+
+        {/* Trust Plant — continuous growth */}
+        <FadeInView delay={150} scale={0.85} style={styles.heroCircleWrapper}>
+          <View
+            style={[
+              styles.heroCircle,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+          >
+            <AnimatedTrustPlant
+              growth={growth}
+              size={120}
+              dark={isDarkMode}
+              focused={true}
+            />
+          </View>
+        </FadeInView>
+
+        {/* Headline */}
+        <FadeInView delay={250} fromY={15} style={styles.textGroup}>
+          <Text style={[styles.headline, { color: colors.text, fontFamily: colors.headlineFont }]}>
+            Grow Your Account
+          </Text>
+          <Text style={[styles.subtitle, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
+            Each field you complete grows your Trust Plant. Fill all required fields to submit.
+          </Text>
+        </FadeInView>
+
+        {/* Step 1 */}
+        <FadeInView delay={300}>
+          {renderStepCard(1)}
+        </FadeInView>
+        {renderStepFields(1)}
+
+        {/* Step 2 */}
+        <FadeInView delay={350}>
+          {renderStepCard(2)}
+        </FadeInView>
+        {renderStepFields(2)}
+
+        {/* Step 3 */}
+        <FadeInView delay={400}>
+          {renderStepCard(3)}
+        </FadeInView>
+        {renderStepFields(3)}
+
+        {/* Legal */}
+        <Text style={[styles.legalNotice, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
+          By continuing, you agree to our{' '}
+          <Text style={{ color: colors.warningOrange, fontFamily: colors.bodyFontBold }}>Terms</Text>{' '}
+          and{' '}
+          <Text style={{ color: colors.warningOrange, fontFamily: colors.bodyFontBold }}>Privacy Policy</Text>
+        </Text>
+
+        {/* Action Button */}
+        <FadeInView delay={450}>
+          <TouchableOpacity
+            style={[
+              styles.actionButton,
+              {
+                backgroundColor: activeStep === 3 && !canSubmit ? colors.neutral : colors.primary,
+              },
+            ]}
+            onPress={handleNextOrSubmit}
+            disabled={isSubmitting}
+            activeOpacity={0.85}
+            accessibilityLabel={
+              activeStep === 3
+                ? canSubmit ? 'Submit KYC application' : 'Fill all required fields to submit'
+                : `Continue to step ${activeStep + 1}`
+            }
+            accessibilityRole="button"
+          >
+            {isSubmitting ? (
+              <ActivityIndicator color="#121212" />
+            ) : (
+              <>
+                <Text style={[styles.actionButtonText, { fontFamily: colors.bodyFontBold }]}>
+                  {activeStep === 3 ? 'Submit Application' : 'Continue'}
+                </Text>
+                <ArrowRight size={18} color="#121212" />
+              </>
+            )}
+          </TouchableOpacity>
+        </FadeInView>
+
+        <TouchableOpacity
+          style={styles.laterButton}
+          onPress={() => router.replace('/')}
+          activeOpacity={0.7}
+          accessibilityLabel="Skip and go back to home"
+          accessibilityRole="button"
+        >
+          <Text style={[styles.laterText, { color: colors.text, fontFamily: colors.bodyFontBold }]}>
+            I'll do this later
+          </Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  content: {
-    padding: 24,
-  },
+  container: { flex: 1 },
+  content: { padding: 24, paddingBottom: 40 },
   topHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 12,
   },
-  screenTitle: {
-    fontSize: 20,
-  },
-  stepCounterText: {
-    fontSize: 12,
-  },
+  screenTitle: { fontSize: 20 },
+  stepCounterText: { fontSize: 12 },
   progressTrack: {
     height: 6,
     borderRadius: 3,
     width: '100%',
-    marginBottom: 28,
+    marginBottom: 24,
     overflow: 'hidden',
   },
-  progressFill: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  heroCircleWrapper: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
+  progressFill: { height: '100%', borderRadius: 3 },
+  heroCircleWrapper: { alignItems: 'center', marginBottom: 16 },
   heroCircle: {
     width: 140,
     height: 140,
@@ -441,22 +449,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  textGroup: {
-    alignItems: 'center',
-    marginBottom: 28,
-  },
-  headline: {
-    fontSize: 30,
-    textAlign: 'center',
-    marginBottom: 10,
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 22,
-    paddingHorizontal: 8,
-  },
+  textGroup: { alignItems: 'center', marginBottom: 24 },
+  headline: { fontSize: 28, textAlign: 'center', marginBottom: 8, letterSpacing: -0.5 },
+  subtitle: { fontSize: 14, textAlign: 'center', lineHeight: 22, paddingHorizontal: 8 },
   stepCard: {
     borderRadius: 24,
     borderWidth: 1,
@@ -464,14 +459,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 8,
   },
-  stepCardLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    flex: 1,
-  },
+  stepCardLeft: { flexDirection: 'row', alignItems: 'center', gap: 14, flex: 1 },
   stepIconBox: {
     width: 44,
     height: 44,
@@ -479,32 +469,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stepTitleGroup: {
-    flex: 1,
-  },
-  stepTag: {
-    fontSize: 10,
-    letterSpacing: 0.5,
-    marginBottom: 2,
-  },
-  stepTitle: {
-    fontSize: 16,
-  },
-  stepSub: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  formContainer: {
-    paddingHorizontal: 8,
-    marginBottom: 16,
-    gap: 12,
-    overflow: 'hidden',
-  },
-  inputGroup: {},
-  inputLabel: {
-    fontSize: 12,
-    marginBottom: 6,
-  },
+  stepTitleGroup: { flex: 1 },
+  stepTag: { fontSize: 10, letterSpacing: 0.5, marginBottom: 2 },
+  stepTitle: { fontSize: 16 },
+  stepSub: { fontSize: 12, marginTop: 2 },
+  formContainer: { paddingHorizontal: 8, marginBottom: 12, gap: 12, overflow: 'hidden' },
+  inputGroup: { marginBottom: 4 },
+  inputLabel: { fontSize: 12, marginBottom: 6 },
   textInput: {
     height: 48,
     borderRadius: 16,
@@ -512,13 +483,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     fontSize: 14,
   },
-  legalNotice: {
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 16,
-    marginBottom: 16,
-  },
-  nourishButton: {
+  errorText: { fontSize: 11, marginTop: 4 },
+  legalNotice: { fontSize: 12, textAlign: 'center', marginTop: 16, marginBottom: 16 },
+  actionButton: {
     height: 56,
     borderRadius: 28,
     flexDirection: 'row',
@@ -527,17 +494,12 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 12,
   },
-  nourishButtonText: {
-    color: '#121212',
-    fontSize: 16,
-  },
+  actionButtonText: { color: '#121212', fontSize: 16 },
   laterButton: {
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 24,
   },
-  laterText: {
-    fontSize: 14,
-  },
+  laterText: { fontSize: 14 },
 });

@@ -5,11 +5,11 @@ import { ArrowRight, UserCheck, ShieldAlert, TrendingUp, Clock } from 'lucide-re
 import { useApp } from '../context/AppContext';
 import { GlassCard } from '../components/GlassCard';
 import { AnimatedTrustPlant } from '../components/AnimatedTrustPlant';
-import { FadeInView, PulseView } from '../components/AnimatedContainers';
+import { FadeInView } from '../components/AnimatedContainers';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { colors, user, isOfficerMode } = useApp();
+  const { colors, isDarkMode, user, isOfficerMode } = useApp();
 
   // Redirect admin to their dashboard immediately
   useEffect(() => {
@@ -18,7 +18,6 @@ export default function HomeScreen() {
     }
   }, [user]);
 
-  // If redirecting admin, render nothing
   if (user?.role === 'admin') return null;
 
   const greeting = user?.name ? `Welcome, ${user.name.split(' ')[0]}!` : 'Welcome to TrustLens';
@@ -31,14 +30,20 @@ export default function HomeScreen() {
     >
       {/* Hero */}
       <FadeInView delay={100} fromY={30} style={styles.heroSection}>
-        <PulseView style={[styles.plantContainer, { backgroundColor: `${colors.primary}12`, borderColor: colors.border }]}>
-          <AnimatedTrustPlant stage={0} size={150} />
-        </PulseView>
+        <View style={[styles.plantContainer, { backgroundColor: `${colors.primary}12`, borderColor: colors.border }]}>
+          <AnimatedTrustPlant growth={0} size={150} dark={isDarkMode} focused={true} />
+        </View>
 
-        <Text style={[styles.greeting, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
+        <Text
+          style={[styles.greeting, { color: colors.bodyText, fontFamily: colors.bodyFont }]}
+          accessibilityRole="text"
+        >
           {greeting}
         </Text>
-        <Text style={[styles.title, { color: colors.text, fontFamily: colors.headlineFont }]}>
+        <Text
+          style={[styles.title, { color: colors.text, fontFamily: colors.headlineFont }]}
+          accessibilityRole="header"
+        >
           Your Trust{'\n'}Journey Starts Here
         </Text>
         <Text style={[styles.subtitle, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
@@ -93,12 +98,14 @@ export default function HomeScreen() {
         </View>
       </FadeInView>
 
-      {/* CTA Buttons */}
+      {/* CTA */}
       <FadeInView delay={550} fromY={10} style={styles.buttonStack}>
         <TouchableOpacity
           style={[styles.primaryButton, { backgroundColor: colors.primary }]}
           onPress={() => router.push('/applicant-form')}
           activeOpacity={0.85}
+          accessibilityLabel="Begin KYC verification"
+          accessibilityRole="button"
         >
           <Text style={[styles.primaryButtonText, { fontFamily: colors.bodyFontBold }]}>
             Begin KYC Verification
@@ -111,6 +118,8 @@ export default function HomeScreen() {
             style={[styles.secondaryButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
             onPress={() => router.push('/officer-dashboard')}
             activeOpacity={0.85}
+            accessibilityLabel="Open compliance dashboard"
+            accessibilityRole="button"
           >
             <Text style={[styles.secondaryButtonText, { color: colors.text, fontFamily: colors.bodyFontBold }]}>
               Open Compliance Dashboard
@@ -123,18 +132,9 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  content: {
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: 36,
-  },
-  heroSection: {
-    alignItems: 'center',
-    marginBottom: 28,
-  },
+  container: { flex: 1 },
+  content: { paddingHorizontal: 24, paddingTop: 12, paddingBottom: 36 },
+  heroSection: { alignItems: 'center', marginBottom: 28 },
   plantContainer: {
     width: 180,
     height: 180,
@@ -144,53 +144,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 20,
   },
-  greeting: {
-    fontSize: 14,
-    marginBottom: 6,
-    letterSpacing: 0.3,
-  },
-  title: {
-    fontSize: 34,
-    textAlign: 'center',
-    marginBottom: 12,
-    letterSpacing: -0.8,
-    lineHeight: 40,
-  },
-  subtitle: {
-    fontSize: 15,
-    lineHeight: 23,
-    textAlign: 'center',
-    paddingHorizontal: 8,
-  },
-  cardGrid: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
-  },
-  featureCard: {
-    gap: 10,
-    padding: 18,
-  },
-  featureIconBg: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  featureTitle: {
-    fontSize: 14,
-    lineHeight: 18,
-  },
-  featureSub: {
-    fontSize: 11,
-    lineHeight: 15,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 28,
-  },
+  greeting: { fontSize: 14, marginBottom: 6, letterSpacing: 0.3 },
+  title: { fontSize: 34, textAlign: 'center', marginBottom: 12, letterSpacing: -0.8, lineHeight: 40 },
+  subtitle: { fontSize: 15, lineHeight: 23, textAlign: 'center', paddingHorizontal: 8 },
+  cardGrid: { flexDirection: 'row', gap: 12, marginBottom: 16 },
+  featureCard: { gap: 10, padding: 18 },
+  featureIconBg: { width: 42, height: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  featureTitle: { fontSize: 14, lineHeight: 18 },
+  featureSub: { fontSize: 11, lineHeight: 15 },
+  statsRow: { flexDirection: 'row', gap: 10, marginBottom: 28 },
   statPill: {
     flex: 1,
     flexDirection: 'row',
@@ -201,16 +163,9 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
   },
-  statPillText: {
-    fontSize: 12,
-    lineHeight: 16,
-  },
-  statPillNum: {
-    fontSize: 13,
-  },
-  buttonStack: {
-    gap: 12,
-  },
+  statPillText: { fontSize: 12, lineHeight: 16 },
+  statPillNum: { fontSize: 13 },
+  buttonStack: { gap: 12 },
   primaryButton: {
     height: 56,
     borderRadius: 28,
@@ -219,10 +174,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
   },
-  primaryButtonText: {
-    color: '#121212',
-    fontSize: 16,
-  },
+  primaryButtonText: { color: '#121212', fontSize: 16 },
   secondaryButton: {
     height: 52,
     borderRadius: 26,
@@ -230,7 +182,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  secondaryButtonText: {
-    fontSize: 15,
-  },
+  secondaryButtonText: { fontSize: 15 },
 });
