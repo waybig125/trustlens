@@ -96,9 +96,18 @@ interface AppContextType {
     neutral: string;
     primary: string;
     primaryDark: string;
+    primarySurface: string;
     secondary: string;
     border: string;
     errorRed: string;
+    // Semantic risk colors
+    riskLow: string;
+    riskLowSurface: string;
+    riskMedium: string;
+    riskMediumSurface: string;
+    riskHigh: string;
+    riskHighSurface: string;
+    // Legacy aliases (kept for backward compat)
     leafGreen: string;
     softCoral: string;
     warningOrange: string;
@@ -130,24 +139,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       trimmedEmail === HARDCODED_USERS.applicant.email &&
       pass === HARDCODED_USERS.applicant.password
     ) {
-      const session: UserSession = {
+      setUser({
         email: HARDCODED_USERS.applicant.email,
         role: 'applicant',
         name: HARDCODED_USERS.applicant.name,
-      };
-      setUser(session);
+      });
       setIsOfficerMode(false);
       return { success: true };
     } else if (
       trimmedEmail === HARDCODED_USERS.admin.email &&
       pass === HARDCODED_USERS.admin.password
     ) {
-      const session: UserSession = {
+      setUser({
         email: HARDCODED_USERS.admin.email,
         role: 'admin',
         name: HARDCODED_USERS.admin.name,
-      };
-      setUser(session);
+      });
       setIsOfficerMode(true);
       return { success: true };
     }
@@ -190,12 +197,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     neutral: palette.neutral,
     primary: palette.primary,
     primaryDark: palette.primaryDark,
+    primarySurface: palette.primarySurface,
     secondary: palette.secondary,
     border: palette.surfaceBorder,
     errorRed: palette.errorRed,
-    leafGreen: palette.leafGreen,
-    softCoral: palette.softCoral,
-    warningOrange: isDarkMode ? palette.secondary : palette.accentOrange,
+    // Semantic risk
+    riskLow: palette.riskLow,
+    riskLowSurface: palette.riskLowSurface,
+    riskMedium: palette.riskMedium,
+    riskMediumSurface: palette.riskMediumSurface,
+    riskHigh: palette.riskHigh,
+    riskHighSurface: palette.riskHighSurface,
+    // Legacy aliases
+    leafGreen: palette.riskLow,
+    softCoral: palette.riskHigh,
+    warningOrange: palette.secondary,
     headlineFont: palette.headlineFont,
     bodyFont: palette.bodyFont,
     bodyFontBold: palette.bodyFontBold,

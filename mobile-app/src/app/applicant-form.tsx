@@ -10,8 +10,6 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
-  Sprout,
-  Flower2,
   Lock,
   ChevronRight,
   User,
@@ -20,6 +18,7 @@ import {
   ArrowRight,
 } from 'lucide-react-native';
 import { useApp } from '../context/AppContext';
+import { AnimatedTrustPlant } from '../components/AnimatedTrustPlant';
 
 export default function ApplicantFormScreen() {
   const router = useRouter();
@@ -94,24 +93,17 @@ export default function ApplicantFormScreen() {
         />
       </View>
 
-      {/* Orbital Trust Plant Hero Graphic */}
+      {/* Animated Trust Plant Hero */}
       <View style={styles.heroCircleWrapper}>
         <View
           style={[
             styles.heroCircle,
             { backgroundColor: colors.surface, borderColor: colors.border },
           ]}>
-          <View
-            style={[
-              styles.iconBadge,
-              { backgroundColor: colors.iconBadgeBg },
-            ]}>
-            {activeStep === 3 ? (
-              <Flower2 size={44} color={colors.primary} />
-            ) : (
-              <Sprout size={44} color={colors.primaryDark} />
-            )}
-          </View>
+          <AnimatedTrustPlant
+            stage={activeStep === 1 ? 1 : activeStep === 2 ? 2 : 3}
+            size={120}
+          />
         </View>
       </View>
 

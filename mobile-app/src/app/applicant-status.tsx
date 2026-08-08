@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Flower2 } from 'lucide-react-native';
 import { useApp } from '../context/AppContext';
+import { AnimatedTrustPlant } from '../components/AnimatedTrustPlant';
 
 export default function ApplicantStatusScreen() {
   const router = useRouter();
@@ -17,7 +17,7 @@ export default function ApplicantStatusScreen() {
       {/* Garden Plant State Card */}
       <View style={[styles.statusCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.iconWrapper}>
-          <Flower2 size={64} color={colors.primary} />
+          <AnimatedTrustPlant stage={3} size={160} />
         </View>
         <Text style={[styles.statusTitle, { color: colors.text, fontFamily: colors.headlineFont }]}>
           {applicantStatus || 'Application Under AI Review'}

@@ -1,155 +1,211 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Sprout, Shield, Coins, ArrowRight, UserCheck, ShieldAlert } from 'lucide-react-native';
+import { ArrowRight, UserCheck, ShieldAlert, TrendingUp, Clock } from 'lucide-react-native';
 import { useApp } from '../context/AppContext';
 import { GlassCard } from '../components/GlassCard';
+import { AnimatedTrustPlant } from '../components/AnimatedTrustPlant';
 
-export default function WelcomeScreen() {
+export default function HomeScreen() {
   const router = useRouter();
-  const { colors } = useApp();
+  const { colors, user, isOfficerMode } = useApp();
+
+  // Redirect admin to their dashboard immediately
+  useEffect(() => {
+    if (user?.role === 'admin') {
+      router.replace('/officer-dashboard');
+    }
+  }, [user]);
+
+  // If redirecting admin, render nothing
+  if (user?.role === 'admin') return null;
+
+  const greeting = user?.name ? `Welcome, ${user.name.split(' ')[0]}!` : 'Welcome to TrustLens';
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.centerContent}>
-        {/* Hero Vector Graphic Cluster */}
-        <View style={[styles.heroCluster, { backgroundColor: `${colors.primary}15`, borderColor: colors.border }]}>
-          <View style={[styles.iconBadge, { backgroundColor: colors.primary }]}>
-            <Sprout size={32} color="#121212" />
-          </View>
-          <View style={[styles.iconBadge, { backgroundColor: colors.primary }]}>
-            <Shield size={36} color="#121212" />
-          </View>
-          <View style={[styles.iconBadge, { backgroundColor: colors.primary }]}>
-            <Coins size={32} color="#121212" />
-          </View>
+    <ScrollView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Hero */}
+      <View style={styles.heroSection}>
+        <View style={[styles.plantContainer, { backgroundColor: `${colors.primary}12`, borderColor: colors.border }]}>
+          <AnimatedTrustPlant stage={0} size={150} />
         </View>
 
+        <Text style={[styles.greeting, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
+          {greeting}
+        </Text>
         <Text style={[styles.title, { color: colors.text, fontFamily: colors.headlineFont }]}>
-          TrustLens Banking
+          Your Trust{'\n'}Journey Starts Here
         </Text>
-
         <Text style={[styles.subtitle, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
-          Playful, AI-powered digital onboarding and real-time risk intelligence.
+          Complete your KYC verification to unlock full banking capabilities and watch your Trust Plant bloom.
         </Text>
+      </View>
 
-        {/* Feature Cards Grid */}
-        <View style={styles.cardGrid}>
-          <GlassCard style={styles.featureCard}>
-            <UserCheck size={26} color={colors.primary} />
-            <View style={styles.featureTextWrapper}>
-              <Text style={[styles.featureTitle, { color: colors.text, fontFamily: colors.headlineFont }]}>
-                Smart Onboarding
-              </Text>
-              <Text style={[styles.featureSub, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
-                Instant AI verification
-              </Text>
-            </View>
-          </GlassCard>
+      {/* Feature Cards */}
+      <View style={styles.cardGrid}>
+        <GlassCard style={styles.featureCard}>
+          <View style={[styles.featureIconBg, { backgroundColor: colors.primarySurface }]}>
+            <UserCheck size={22} color={colors.primaryDark} strokeWidth={2.2} />
+          </View>
+          <Text style={[styles.featureTitle, { color: colors.text, fontFamily: colors.headlineFont }]}>
+            Smart KYC
+          </Text>
+          <Text style={[styles.featureSub, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
+            AI-powered identity verification
+          </Text>
+        </GlassCard>
 
-          <GlassCard style={styles.featureCard}>
-            <ShieldAlert size={26} color={colors.softCoral} />
-            <View style={styles.featureTextWrapper}>
-              <Text style={[styles.featureTitle, { color: colors.text, fontFamily: colors.headlineFont }]}>
-                EDD Intelligence
-              </Text>
-              <Text style={[styles.featureSub, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
-                Officer risk reviews
-              </Text>
-            </View>
-          </GlassCard>
+        <GlassCard style={styles.featureCard}>
+          <View style={[styles.featureIconBg, { backgroundColor: colors.riskHighSurface }]}>
+            <ShieldAlert size={22} color={colors.riskHigh} strokeWidth={2.2} />
+          </View>
+          <Text style={[styles.featureTitle, { color: colors.text, fontFamily: colors.headlineFont }]}>
+            Risk Shield
+          </Text>
+          <Text style={[styles.featureSub, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
+            Real-time compliance checks
+          </Text>
+        </GlassCard>
+      </View>
+
+      {/* Stats Row */}
+      <View style={styles.statsRow}>
+        <View style={[styles.statPill, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <TrendingUp size={14} color={colors.riskLow} />
+          <Text style={[styles.statPillText, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
+            <Text style={[styles.statPillNum, { color: colors.riskLow, fontFamily: colors.bodyFontBold }]}>98.4%</Text> AI Accuracy
+          </Text>
         </View>
+        <View style={[styles.statPill, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Clock size={14} color={colors.primary} />
+          <Text style={[styles.statPillText, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
+            <Text style={[styles.statPillNum, { color: colors.primary, fontFamily: colors.bodyFontBold }]}>&lt;2 min</Text> Avg. Review
+          </Text>
+        </View>
+      </View>
 
-        {/* Action Buttons */}
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            style={[styles.primaryButton, { backgroundColor: colors.primary }]}
-            onPress={() => router.push('/applicant-form')}
-            activeOpacity={0.85}>
-            <Text style={[styles.primaryButtonText, { fontFamily: colors.bodyFontBold }]}>
-              Open An Account (Applicant)
-            </Text>
-            <ArrowRight size={18} color="#121212" />
-          </TouchableOpacity>
+      {/* CTA Buttons */}
+      <View style={styles.buttonStack}>
+        <TouchableOpacity
+          style={[styles.primaryButton, { backgroundColor: colors.primary }]}
+          onPress={() => router.push('/applicant-form')}
+          activeOpacity={0.85}
+        >
+          <Text style={[styles.primaryButtonText, { fontFamily: colors.bodyFontBold }]}>
+            Begin KYC Verification
+          </Text>
+          <ArrowRight size={18} color="#121212" strokeWidth={2.5} />
+        </TouchableOpacity>
 
+        {isOfficerMode && (
           <TouchableOpacity
             style={[styles.secondaryButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
             onPress={() => router.push('/officer-dashboard')}
-            activeOpacity={0.85}>
+            activeOpacity={0.85}
+          >
             <Text style={[styles.secondaryButtonText, { color: colors.text, fontFamily: colors.bodyFontBold }]}>
-              Officer EDD Dashboard (Compliance Admin)
+              Open Compliance Dashboard
             </Text>
           </TouchableOpacity>
-        </View>
+        )}
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  content: {
     paddingHorizontal: 24,
-    justifyContent: 'center',
+    paddingTop: 12,
+    paddingBottom: 36,
   },
-  centerContent: {
+  heroSection: {
     alignItems: 'center',
+    marginBottom: 28,
   },
-  heroCluster: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderRadius: 30,
+  plantContainer: {
+    width: 180,
+    height: 180,
+    borderRadius: 90,
     borderWidth: 1,
-    gap: 16,
-    marginBottom: 24,
-  },
-  iconBadge: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 20,
+  },
+  greeting: {
+    fontSize: 14,
+    marginBottom: 6,
+    letterSpacing: 0.3,
   },
   title: {
-    fontSize: 32,
+    fontSize: 34,
     textAlign: 'center',
-    marginBottom: 10,
-    letterSpacing: -0.5,
+    marginBottom: 12,
+    letterSpacing: -0.8,
+    lineHeight: 40,
   },
   subtitle: {
     fontSize: 15,
-    lineHeight: 22,
+    lineHeight: 23,
     textAlign: 'center',
-    marginBottom: 32,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
   },
   cardGrid: {
-    width: '100%',
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 32,
+    marginBottom: 16,
   },
   featureCard: {
     flex: 1,
-    gap: 8,
-    padding: 16,
+    gap: 10,
+    padding: 18,
   },
-  featureTextWrapper: {
-    marginTop: 4,
+  featureIconBg: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   featureTitle: {
-    fontSize: 13,
+    fontSize: 14,
+    lineHeight: 18,
   },
   featureSub: {
     fontSize: 11,
-    marginTop: 2,
+    lineHeight: 15,
   },
-  buttonContainer: {
-    width: '100%',
-    gap: 14,
+  statsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 28,
+  },
+  statPill: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  statPillText: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  statPillNum: {
+    fontSize: 13,
+  },
+  buttonStack: {
+    gap: 12,
   },
   primaryButton: {
     height: 56,
@@ -164,8 +220,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   secondaryButton: {
-    height: 56,
-    borderRadius: 28,
+    height: 52,
+    borderRadius: 26,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',

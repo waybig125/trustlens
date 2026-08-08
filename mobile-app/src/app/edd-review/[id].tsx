@@ -79,16 +79,16 @@ export default function EddReviewScreen() {
           style={[
             styles.aiCard,
             {
-              backgroundColor: isDarkMode ? `${colors.softCoral}18` : '#FFF3E0',
-              borderColor: isDarkMode ? `${colors.softCoral}50` : '#FFCC80',
+              backgroundColor: isDarkMode ? colors.riskHighSurface : '#FFF3E0',
+              borderColor: isDarkMode ? `${colors.riskHigh}60` : '#FFCC80',
             },
           ]}>
           <View style={styles.aiHeader}>
-            <Bot size={24} color={isDarkMode ? colors.softCoral : '#F57C00'} />
+            <Bot size={24} color={isDarkMode ? colors.riskHigh : '#E65C00'} />
             <Text
               style={[
                 styles.aiTitle,
-                { color: isDarkMode ? colors.softCoral : '#F57C00', fontFamily: colors.headlineFont },
+                { color: isDarkMode ? colors.riskHigh : '#E65C00', fontFamily: colors.headlineFont },
               ]}>
               AI Risk Profiling Judgment
             </Text>
@@ -102,7 +102,7 @@ export default function EddReviewScreen() {
       {/* Sticky Bottom Decision Bar */}
       <View style={[styles.stickyBottom, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
         <TouchableOpacity
-          style={[styles.approveButton, { backgroundColor: colors.leafGreen }]}
+          style={[styles.approveButton, { backgroundColor: colors.riskLow }]}
           onPress={handleApprove}
           activeOpacity={0.85}>
           <CheckCircle2 size={20} color="#FFFFFF" />

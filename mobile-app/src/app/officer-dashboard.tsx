@@ -38,6 +38,12 @@ export default function OfficerDashboardScreen() {
     return matchesSearch && matchesFilter;
   });
 
+  const getRiskColors = (riskLevel: RiskLevel) => {
+    if (riskLevel === RiskLevel.HIGH) return { text: colors.riskHigh, surface: colors.riskHighSurface };
+    if (riskLevel === RiskLevel.MEDIUM) return { text: colors.riskMedium, surface: colors.riskMediumSurface };
+    return { text: colors.riskLow, surface: colors.riskLowSurface };
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Top Stats Banner */}
@@ -57,10 +63,10 @@ export default function OfficerDashboardScreen() {
               Flagged for EDD
             </Text>
             <View style={styles.statValueRow}>
-              <Text style={[styles.statValue, { color: colors.softCoral, fontFamily: colors.headlineFont }]}>
+              <Text style={[styles.statValue, { color: colors.riskHigh, fontFamily: colors.headlineFont }]}>
                 12
               </Text>
-              <Text style={[styles.alertBadge, { color: colors.softCoral, fontFamily: colors.bodyFontBold }]}>
+              <Text style={[styles.alertBadge, { color: colors.riskHigh, fontFamily: colors.bodyFontBold }]}>
                 High Risk
               </Text>
             </View>
@@ -130,60 +136,58 @@ export default function OfficerDashboardScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         renderItem={({ item }) => {
-          const isHighRisk = item.riskLevel === RiskLevel.HIGH;
           return (
             <TouchableOpacity
               style={[styles.applicantCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
               onPress={() => router.push(`/edd-review/${item.id}`)}
               activeOpacity={0.85}>
-              <View
-                style={[
-                  styles.iconCircle,
-                  { backgroundColor: isHighRisk ? `${colors.softCoral}20` : `${colors.leafGreen}20` },
-                ]}>
-                {isHighRisk ? (
-                  <Flame size={26} color={colors.softCoral} />
-                ) : (
-                  <Sprout size={26} color={colors.leafGreen} />
-                )}
-              </View>
+              {(() => {
+                const risk = getRiskColors(item.riskLevel);
+                const riskLabel =
+                  item.riskLevel === RiskLevel.HIGH ? 'HIGH RISK' :
+                  item.riskLevel === RiskLevel.MEDIUM ? 'MEDIUM RISK' :
+                  item.status === 'Auto-Approved' ? 'AUTO-APPROVED' : 'LOW RISK';
+                return (
+                  <>
+                    <View style={[styles.iconCircle, { backgroundColor: risk.surface }]}>
+                      {item.riskLevel === RiskLevel.HIGH ? (
+                        <Flame size={26} color={risk.text} />
+                      ) : (
+                        <Sprout size={26} color={risk.text} />
+                      )}
+                    </View>
 
-              <View style={styles.cardInfo}>
-                <View style={styles.cardHeaderRow}>
-                  <Text style={[styles.applicantName, { color: colors.text, fontFamily: colors.headlineFont }]} numberOfLines={1}>
-                    {item.name}
-                  </Text>
+                    <View style={styles.cardInfo}>
+                      <View style={styles.cardHeaderRow}>
+                        <Text style={[styles.applicantName, { color: colors.text, fontFamily: colors.headlineFont }]} numberOfLines={1}>
+                          {item.name}
+                        </Text>
 
-                  <View
-                    style={[
-                      styles.riskBadge,
-                      { backgroundColor: isHighRisk ? `${colors.softCoral}25` : `${colors.leafGreen}25` },
-                    ]}>
-                    <Text
-                      style={[
-                        styles.riskBadgeText,
-                        { color: isHighRisk ? colors.softCoral : colors.leafGreen, fontFamily: colors.bodyFontBold },
-                      ]}>
-                      {isHighRisk ? 'HIGH RISK' : item.status === 'Auto-Approved' ? 'AUTO-APPROVED' : 'LOW RISK'}
-                    </Text>
-                  </View>
-                </View>
+                        <View style={[styles.riskBadge, { backgroundColor: risk.surface }]}>
+                          <Text style={[styles.riskBadgeText, { color: risk.text, fontFamily: colors.bodyFontBold }]}>
+                            {riskLabel}
+                          </Text>
+                        </View>
+                      </View>
 
-                <Text style={[styles.cardSubtitle, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
-                  {isHighRisk
-                    ? 'Income vs Transaction Intent Mismatch'
-                    : `${item.aiConfidence}% AI Confidence`}
-                </Text>
-              </View>
+                      <Text style={[styles.cardSubtitle, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
+                        {item.riskLevel === RiskLevel.HIGH
+                          ? 'Income vs Transaction Intent Mismatch'
+                          : `${item.aiConfidence}% AI Confidence`}
+                      </Text>
+                    </View>
 
-              <View style={styles.cardMeta}>
-                <Text style={[styles.idText, { color: colors.neutral, fontFamily: colors.bodyFont }]}>
-                  ID: {item.id}
-                </Text>
-                <Text style={[styles.reviewLink, { color: colors.text, fontFamily: colors.bodyFontBold }]}>
-                  Review
-                </Text>
-              </View>
+                    <View style={styles.cardMeta}>
+                      <Text style={[styles.idText, { color: colors.neutral, fontFamily: colors.bodyFont }]}>
+                        ID: {item.id}
+                      </Text>
+                      <Text style={[styles.reviewLink, { color: colors.text, fontFamily: colors.bodyFontBold }]}>
+                        Review
+                      </Text>
+                    </View>
+                  </>
+                );
+              })()}
             </TouchableOpacity>
           );
         }}
