@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,19 +7,49 @@ import {
   ScrollView,
   FlatList,
   StyleSheet,
+  ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Search, Flame, Sprout, Inbox } from 'lucide-react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { Search, Flame, Sprout, Users, TrendingUp } from 'lucide-react-native';
 import { useApp } from '../context/AppContext';
-import { RiskLevel } from '../types';
-import { FadeInView } from '../components/AnimatedContainers';
+import { RiskLevel, riskLabel } from '../types';
 
 export default function OfficerDashboardScreen() {
   const router = useRouter();
-  const { colors, applicants } = useApp();
+  const { colors, applicants, error, loadApplications, loadDashboard, loadQueue } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('All');
+  const [stats, setStats] = useState<{
+    total: number;
+    eddQueue: number;
+    highRisk: number;
+    resolved: number;
+  } | null>(null);
+  const [queue, setQueue] = useState<any[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadApplications();
+    const [d, q] = await Promise.all([loadDashboard(), loadQueue()]);
+    if (d) {
+      setStats({
+        total: d.total_applications,
+        eddQueue: d.edd_queue_open,
+        highRisk: d.risk_distribution?.high ?? 0,
+        resolved: d.before_after_review?.resolved_after_review ?? 0,
+      });
+    }
+    setQueue(q);
+    setRefreshing(false);
+  }, [loadApplications, loadDashboard, loadQueue]);
+
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [refresh]),
+  );
 
   const filters = ['All', 'Low Risk (Thriving)', 'Medium Risk', 'High Risk (EDD Queue)'];
 
@@ -48,15 +78,18 @@ export default function OfficerDashboardScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Top Stats Banner */}
-      <FadeInView delay={50} style={styles.statsContainer}>
+      <View style={styles.statsContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statsScroll}>
           <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <Text style={[styles.statTitle, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
               Total Onboarded
             </Text>
-            <Text style={[styles.statValue, { color: colors.text, fontFamily: colors.headlineFont }]}>
-              1,245
-            </Text>
+            <View style={styles.statValueRow}>
+              <Text style={[styles.statValue, { color: colors.text, fontFamily: colors.headlineFont }]}>
+                {stats ? stats.total : '—'}
+              </Text>
+              <Users size={14} color={colors.primary} />
+            </View>
           </View>
 
           <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -65,27 +98,45 @@ export default function OfficerDashboardScreen() {
             </Text>
             <View style={styles.statValueRow}>
               <Text style={[styles.statValue, { color: colors.riskHigh, fontFamily: colors.headlineFont }]}>
-                12
+                {stats ? stats.eddQueue : '—'}
               </Text>
               <Text style={[styles.alertBadge, { color: colors.riskHigh, fontFamily: colors.bodyFontBold }]}>
-                High Risk
+                {stats ? `${stats.highRisk} High Risk` : 'High Risk'}
               </Text>
             </View>
           </View>
 
           <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <Text style={[styles.statTitle, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
-              AI Approval Rate
+              Resolved by Review
             </Text>
-            <Text style={[styles.statValue, { color: colors.text, fontFamily: colors.headlineFont }]}>
-              98.4%
-            </Text>
+            <View style={styles.statValueRow}>
+              <Text style={[styles.statValue, { color: colors.text, fontFamily: colors.headlineFont }]}>
+                {stats ? stats.resolved : '—'}
+              </Text>
+              <TrendingUp size={14} color={colors.riskLow} />
+            </View>
           </View>
         </ScrollView>
-      </FadeInView>
+      </View>
+
+      {/* EDD Queue Preview */}
+      {queue && queue.length > 0 && (
+        <TouchableOpacity
+          style={[styles.queueBanner, { backgroundColor: colors.riskHighSurface, borderColor: `${colors.riskHigh}40` }]}
+          onPress={() => router.push(`/edd-review/${queue[0].application_id}`)}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+        >
+          <Flame size={18} color={colors.riskHigh} />
+          <Text style={[styles.queueBannerText, { color: colors.riskHigh, fontFamily: colors.bodyFontBold }]}>
+            {queue.length} case{queue.length > 1 ? 's' : ''} pending review — tap to start
+          </Text>
+        </TouchableOpacity>
+      )}
 
       {/* Search Bar */}
-      <FadeInView delay={100} style={styles.searchPadding}>
+      <View style={styles.searchPadding}>
         <View style={[styles.searchBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Search size={18} color={colors.neutral} />
           <TextInput
@@ -94,13 +145,12 @@ export default function OfficerDashboardScreen() {
             placeholderTextColor={colors.neutral}
             value={searchQuery}
             onChangeText={setSearchQuery}
-            accessibilityLabel="Search applicant name, ID, or risk flag"
           />
         </View>
-      </FadeInView>
+      </View>
 
-      {/* Filter Pills with 44px touch targets */}
-      <FadeInView delay={150} style={styles.filterContainer}>
+      {/* Filter Pills */}
+      <View style={styles.filterContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
           {filters.map((filter) => {
             const isSelected = selectedFilter === filter;
@@ -115,11 +165,7 @@ export default function OfficerDashboardScreen() {
                   },
                 ]}
                 onPress={() => setSelectedFilter(filter)}
-                activeOpacity={0.75}
-                accessibilityLabel={`Filter by ${filter}`}
-                accessibilityRole="button"
-                accessibilityState={{ selected: isSelected }}
-              >
+                activeOpacity={0.75}>
                 <Text
                   style={[
                     styles.filterChipText,
@@ -134,39 +180,43 @@ export default function OfficerDashboardScreen() {
             );
           })}
         </ScrollView>
-      </FadeInView>
+      </View>
 
-      {/* Applicant List or Empty State */}
-      {filteredApplicants.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Inbox size={48} color={colors.neutral} style={{ marginBottom: 12 }} />
-          <Text style={[styles.emptyTitle, { color: colors.text, fontFamily: colors.headlineFont }]}>
-            No Applicants Found
+      {/* Errors */}
+      {error && (
+        <View style={styles.errorRow}>
+          <Text style={[styles.errorText, { color: colors.errorRed, fontFamily: colors.bodyFont }]}>
+            {error}
           </Text>
-          <Text style={[styles.emptySub, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
-            No applicants match your current search or risk filter criteria.
-          </Text>
+          <TouchableOpacity onPress={refresh} activeOpacity={0.7}>
+            <Text style={{ color: colors.primary, fontSize: 18, fontFamily: colors.bodyFontBold }}>↻</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Loading / List */}
+      {refreshing && applicants.length === 0 ? (
+        <View style={styles.loadingBox}>
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
         <FlatList
           data={filteredApplicants}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
+          ListEmptyComponent={
+            <Text style={[styles.emptyText, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
+              No applicants found.
+            </Text>
+          }
           renderItem={({ item }) => {
             const risk = getRiskColors(item.riskLevel);
-            const riskLabel =
-              item.riskLevel === RiskLevel.HIGH ? 'HIGH RISK' :
-              item.riskLevel === RiskLevel.MEDIUM ? 'MEDIUM RISK' :
-              item.status === 'Auto-Approved' ? 'AUTO-APPROVED' : 'LOW RISK';
-
+            const label = riskLabel(item.riskLevel.toLowerCase() as 'low' | 'medium' | 'high');
             return (
               <TouchableOpacity
                 style={[styles.applicantCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
                 onPress={() => router.push(`/edd-review/${item.id}`)}
-                activeOpacity={0.85}
-                accessibilityLabel={`Review applicant ${item.name}, ${riskLabel}`}
-                accessibilityRole="button"
-              >
+                activeOpacity={0.85}>
                 <View style={[styles.iconCircle, { backgroundColor: risk.surface }]}>
                   {item.riskLevel === RiskLevel.HIGH ? (
                     <Flame size={26} color={risk.text} />
@@ -180,17 +230,15 @@ export default function OfficerDashboardScreen() {
                     <Text style={[styles.applicantName, { color: colors.text, fontFamily: colors.headlineFont }]} numberOfLines={1}>
                       {item.name}
                     </Text>
-
                     <View style={[styles.riskBadge, { backgroundColor: risk.surface }]}>
                       <Text style={[styles.riskBadgeText, { color: risk.text, fontFamily: colors.bodyFontBold }]}>
-                        {riskLabel}
+                        {label}
                       </Text>
                     </View>
                   </View>
-
                   <Text style={[styles.cardSubtitle, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
                     {item.riskLevel === RiskLevel.HIGH
-                      ? 'Income vs Transaction Intent Mismatch'
+                      ? 'Under enhanced due diligence'
                       : `${item.aiConfidence}% AI Confidence`}
                   </Text>
                 </View>
@@ -213,41 +261,27 @@ export default function OfficerDashboardScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  statsContainer: {
-    paddingVertical: 12,
-  },
-  statsScroll: {
-    paddingHorizontal: 20,
-    gap: 12,
-  },
-  statCard: {
-    width: 140,
-    borderRadius: 24,
-    borderWidth: 1,
-    padding: 14,
-  },
-  statTitle: {
-    fontSize: 11,
-    marginBottom: 4,
-  },
-  statValueRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 4,
-  },
-  statValue: {
-    fontSize: 22,
-  },
-  alertBadge: {
-    fontSize: 10,
-  },
-  searchPadding: {
-    paddingHorizontal: 20,
+  container: { flex: 1 },
+  statsContainer: { paddingVertical: 12 },
+  statsScroll: { paddingHorizontal: 20, gap: 12 },
+  statCard: { width: 150, borderRadius: 24, borderWidth: 1, padding: 14 },
+  statTitle: { fontSize: 11, marginBottom: 4 },
+  statValueRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
+  statValue: { fontSize: 22 },
+  alertBadge: { fontSize: 10 },
+  queueBanner: {
+    marginHorizontal: 20,
     marginBottom: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
+  queueBannerText: { fontSize: 13, flex: 1 },
+  searchPadding: { paddingHorizontal: 20, marginBottom: 12 },
   searchBox: {
     height: 50,
     borderRadius: 18,
@@ -257,32 +291,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     gap: 10,
   },
-  searchInput: {
-    flex: 1,
-    fontSize: 14,
-  },
-  filterContainer: {
-    marginBottom: 12,
-  },
-  filterScroll: {
-    paddingHorizontal: 20,
-    gap: 8,
-  },
-  filterChip: {
-    paddingHorizontal: 18,
-    minHeight: 44,
-    justifyContent: 'center',
-    borderRadius: 22,
-    borderWidth: 1,
-  },
-  filterChipText: {
-    fontSize: 13,
-  },
-  listContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 24,
-    gap: 12,
-  },
+  searchInput: { flex: 1, fontSize: 14 },
+  filterContainer: { marginBottom: 12 },
+  filterScroll: { paddingHorizontal: 20, gap: 8 },
+  filterChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
+  filterChipText: { fontSize: 12 },
+  listContent: { paddingHorizontal: 20, paddingBottom: 24, gap: 12 },
   applicantCard: {
     borderRadius: 24,
     borderWidth: 1,
@@ -290,64 +304,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  iconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 14,
-  },
-  cardInfo: {
-    flex: 1,
-  },
-  cardHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginRight: 8,
-  },
-  applicantName: {
-    fontSize: 16,
-  },
-  riskBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  riskBadgeText: {
-    fontSize: 9,
-    letterSpacing: 0.5,
-  },
-  cardSubtitle: {
-    fontSize: 12,
-    marginTop: 4,
-  },
-  cardMeta: {
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    height: 40,
-  },
-  idText: {
-    fontSize: 10,
-  },
-  reviewLink: {
-    fontSize: 12,
-  },
-  emptyContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 32,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    marginBottom: 6,
-    textAlign: 'center',
-  },
-  emptySub: {
-    fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
+  iconCircle: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
+  cardInfo: { flex: 1 },
+  cardHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginRight: 8 },
+  applicantName: { fontSize: 16 },
+  riskBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  riskBadgeText: { fontSize: 9, letterSpacing: 0.5 },
+  cardSubtitle: { fontSize: 12, marginTop: 4 },
+  cardMeta: { alignItems: 'flex-end', justifyContent: 'space-between', height: 40 },
+  idText: { fontSize: 10 },
+  reviewLink: { fontSize: 12 },
+  errorRow: { paddingHorizontal: 20, marginBottom: 8, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  errorText: { flex: 1, fontSize: 12 },
+  loadingBox: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  emptyText: { textAlign: 'center', marginTop: 32 },
 });

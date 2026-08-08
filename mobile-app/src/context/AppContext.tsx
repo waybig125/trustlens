@@ -1,5 +1,13 @@
-import React, { createContext, useContext, useState } from 'react';
-import { Applicant, RiskLevel } from '../types';
+import React, { createContext, useContext, useState, useCallback } from 'react';
+import { api, errMessage, CaseActionBody } from '../api/client';
+import {
+  Applicant,
+  Application,
+  Case,
+  DashboardStats,
+  OnboardingPayload,
+  toApplicant,
+} from '../types';
 import { Palette } from '../constants/Palette';
 
 export interface UserSession {
@@ -23,56 +31,7 @@ export const HARDCODED_USERS = {
   },
 };
 
-export const mockApplicants: Applicant[] = [
-  {
-    id: '1',
-    name: 'Amina Bibi',
-    occupation: 'Teacher',
-    riskLevel: RiskLevel.LOW,
-    aiConfidence: 96,
-    aiReasoning:
-      'LOW RISK CONFIDENCE (96%): Consistent income matching stated transaction volume. Address verified via secondary utility source. No unusual cross-border activity.',
-    signals: {
-      Income: 'PKR 60,000/month',
-      'Expected Volume': 'PKR 40,000/month',
-      Address: 'Matching',
-      Intent: 'Savings & Local Transfers',
-    },
-    status: 'Auto-Approved',
-  },
-  {
-    id: '2',
-    name: 'Kamran',
-    occupation: 'Shopkeeper',
-    riskLevel: RiskLevel.HIGH,
-    aiConfidence: 89,
-    aiReasoning:
-      'HIGH RISK CONFIDENCE (89%): Declared income of PKR 40,000/month does not match expected international transaction volume of PKR 2,500,000/month. Address verification shows cross-district variance. Action required: Enhanced Due Diligence.',
-    signals: {
-      Income: 'PKR 40,000/month',
-      'Expected Volume': 'PKR 2,500,000/month',
-      Address: 'Cross-District Variance',
-      Intent: 'International Trading',
-    },
-    status: 'Pending Review',
-  },
-  {
-    id: '3',
-    name: 'Zaid Khan',
-    occupation: 'Freelancer',
-    riskLevel: RiskLevel.MEDIUM,
-    aiConfidence: 72,
-    aiReasoning:
-      'MEDIUM RISK CONFIDENCE (72%): New identity file. Income source is variable. Pending secondary KYC verification.',
-    signals: {
-      Income: 'Variable',
-      'Expected Volume': 'PKR 150,000/month',
-      Address: 'Pending',
-      Intent: 'Freelance Receipts',
-    },
-    status: 'Pending Review',
-  },
-];
+type ActionResult = { success: boolean; error?: string };
 
 interface AppContextType {
   isDarkMode: boolean;
@@ -82,11 +41,23 @@ interface AppContextType {
   logout: () => void;
   isOfficerMode: boolean;
   toggleRole: () => void;
+
+  // Server-backed state
   applicants: Applicant[];
-  currentApplicantForm: Record<string, string>;
-  applicantStatus: string | null;
-  submitApplicantForm: (form: Record<string, string>) => void;
-  updateApplicantStatus: (id: string, newStatus: string, newRiskLevel?: RiskLevel) => void;
+  loading: boolean;
+  error: string | null;
+  lastApplicationId: string | null;
+  setLastApplicationId: (id: string | null) => void;
+
+  loadApplications: () => Promise<void>;
+  loadDashboard: () => Promise<DashboardStats | null>;
+  loadQueue: () => Promise<Case[]>;
+  submitApplicant: (payload: OnboardingPayload) => Promise<{ applicationId?: string; error?: string }>;
+  getApplicationDetail: (id: string) => Promise<Application | null>;
+  officerAction: (caseId: string, action: CaseActionBody['action'], note?: string) => Promise<ActionResult>;
+  routeToEdd: (applicationId: string) => Promise<ActionResult>;
+  submitClarification: (applicationId: string, message: string) => Promise<ActionResult>;
+
   colors: {
     background: string;
     surface: string;
@@ -125,9 +96,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [user, setUser] = useState<UserSession | null>(null);
   const [isOfficerMode, setIsOfficerMode] = useState(false);
-  const [applicants, setApplicants] = useState<Applicant[]>(mockApplicants);
-  const [currentApplicantForm, setCurrentApplicantForm] = useState<Record<string, string>>({});
-  const [applicantStatus, setApplicantStatus] = useState<string | null>(null);
+
+  const [applicants, setApplicants] = useState<Applicant[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [lastApplicationId, setLastApplicationId] = useState<string | null>(null);
 
   const toggleTheme = () => setIsDarkMode((prev) => !prev);
   const toggleRole = () => setIsOfficerMode((prev) => !prev);
@@ -166,25 +139,110 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUser(null);
   };
 
-  const submitApplicantForm = (form: Record<string, string>) => {
-    setCurrentApplicantForm(form);
-    setApplicantStatus('Application Under AI Review');
-  };
+  const loadApplications = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api.listApplications();
+      setApplicants(res.applications.map(toApplicant));
+    } catch (e) {
+      const msg = errMessage(e);
+      setError(msg);
+      setApplicants([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const updateApplicantStatus = (id: string, newStatus: string, newRiskLevel?: RiskLevel) => {
-    setApplicants((prev) =>
-      prev.map((app) => {
-        if (app.id === id) {
-          return {
-            ...app,
-            status: newStatus,
-            riskLevel: newRiskLevel ?? app.riskLevel,
-          };
-        }
-        return app;
-      })
-    );
-  };
+  const loadDashboard = useCallback(async () => {
+    try {
+      return await api.getDashboard();
+    } catch (e) {
+      setError(errMessage(e));
+      return null;
+    }
+  }, []);
+
+  const loadQueue = useCallback(async () => {
+    try {
+      const res = await api.getEddQueue();
+      return res.queue;
+    } catch (e) {
+      setError(errMessage(e));
+      return [];
+    }
+  }, []);
+
+  const submitApplicant = useCallback(
+    async (payload: OnboardingPayload): Promise<{ applicationId?: string; error?: string }> => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await api.submitOnboarding(payload);
+        setLastApplicationId(res.application_id);
+        return { applicationId: res.application_id };
+      } catch (e) {
+        const msg = errMessage(e);
+        setError(msg);
+        return { error: msg };
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
+
+  const getApplicationDetail = useCallback(async (id: string): Promise<Application | null> => {
+    try {
+      return await api.getApplication(id);
+    } catch (e) {
+      setError(errMessage(e));
+      return null;
+    }
+  }, []);
+
+  const officerAction = useCallback(
+    async (caseId: string, action: CaseActionBody['action'], note?: string): Promise<ActionResult> => {
+      try {
+        await api.caseAction(caseId, {
+          action,
+          note,
+          officer: user?.name ?? 'officer',
+        });
+        return { success: true };
+      } catch (e) {
+        const msg = errMessage(e);
+        setError(msg);
+        return { success: false, error: msg };
+      }
+    },
+    [user],
+  );
+
+  const routeToEdd = useCallback(async (applicationId: string): Promise<ActionResult> => {
+    try {
+      await api.routeToEdd(applicationId);
+      return { success: true };
+    } catch (e) {
+      const msg = errMessage(e);
+      setError(msg);
+      return { success: false, error: msg };
+    }
+  }, []);
+
+  const submitClarification = useCallback(
+    async (applicationId: string, message: string): Promise<ActionResult> => {
+      try {
+        await api.submitClarification(applicationId, message);
+        return { success: true };
+      } catch (e) {
+        const msg = errMessage(e);
+        setError(msg);
+        return { success: false, error: msg };
+      }
+    },
+    [],
+  );
 
   const palette = isDarkMode ? Palette.dark : Palette.light;
 
@@ -230,10 +288,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isOfficerMode,
         toggleRole,
         applicants,
-        currentApplicantForm,
-        applicantStatus,
-        submitApplicantForm,
-        updateApplicantStatus,
+        loading,
+        error,
+        lastApplicationId,
+        setLastApplicationId,
+        loadApplications,
+        loadDashboard,
+        loadQueue,
+        submitApplicant,
+        getApplicationDetail,
+        officerAction,
+        routeToEdd,
+        submitClarification,
         colors,
       }}>
       {children}

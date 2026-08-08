@@ -19,10 +19,10 @@ import {
   Landmark,
   Briefcase,
   ArrowRight,
-  ArrowLeft,
   CheckCircle2,
 } from 'lucide-react-native';
 import { useApp } from '../context/AppContext';
+import { parseAmount, OnboardingPayload } from '../types';
 import { AnimatedTrustPlant } from '../components/AnimatedTrustPlant';
 import { FadeInView } from '../components/AnimatedContainers';
 
@@ -39,10 +39,12 @@ interface FieldDef {
 const FIELDS: FieldDef[] = [
   { key: 'name', label: 'Full Name', placeholder: 'e.g. Amina Bibi', keyboardType: 'default', required: true, step: 1 },
   { key: 'idNum', label: 'CNIC / ID Number', placeholder: 'e.g. 35202-1234567-1', keyboardType: 'number-pad', required: true, step: 1 },
-  { key: 'address', label: 'Address & City', placeholder: 'e.g. House #12, Block B, Lahore', keyboardType: 'default', required: false, step: 1 },
+  { key: 'city', label: 'City', placeholder: 'e.g. Lahore', keyboardType: 'default', required: false, step: 1 },
+  { key: 'address', label: 'Address', placeholder: 'e.g. House #12, Block B', keyboardType: 'default', required: false, step: 1 },
   { key: 'employment', label: 'Employment Type', placeholder: 'e.g. Teacher / Freelancer', keyboardType: 'default', required: true, step: 2 },
-  { key: 'income', label: 'Declared Monthly Income', placeholder: 'e.g. PKR 60,000/month', keyboardType: 'default', required: true, step: 2 },
-  { key: 'behavior', label: 'Expected Transaction Volume', placeholder: 'e.g. PKR 40,000/month', keyboardType: 'default', required: true, step: 3 },
+  { key: 'businessType', label: 'Business Type (if self-employed)', placeholder: 'e.g. Electronics shop', keyboardType: 'default', required: false, step: 2 },
+  { key: 'income', label: 'Declared Monthly Income', placeholder: 'e.g. 60000', keyboardType: 'number-pad', required: true, step: 2 },
+  { key: 'behavior', label: 'Expected Monthly Transactions', placeholder: 'e.g. 40000', keyboardType: 'number-pad', required: true, step: 3 },
   { key: 'intent', label: 'Account Purpose', placeholder: 'e.g. Savings & Local Transfers', keyboardType: 'default', required: true, step: 3 },
 ];
 
@@ -51,7 +53,7 @@ const REQUIRED_FIELDS = FIELDS.filter((f) => f.required);
 
 export default function ApplicantFormScreen() {
   const router = useRouter();
-  const { colors, isDarkMode, submitApplicantForm } = useApp();
+  const { colors, isDarkMode, submitApplicant } = useApp();
 
   const [activeStep, setActiveStep] = useState<1 | 2 | 3>(1);
 
@@ -89,7 +91,6 @@ export default function ApplicantFormScreen() {
 
   const step1Complete = isStepComplete(1);
   const step2Complete = isStepComplete(2);
-  const step3Complete = isStepComplete(3);
   const allRequiredComplete = REQUIRED_FIELDS.every(
     (f) => (values[f.key] || '').trim().length > 0,
   );
@@ -137,17 +138,29 @@ export default function ApplicantFormScreen() {
         return;
       }
       setIsSubmitting(true);
-      setTimeout(() => {
-        // Submit exactly what the user typed — no fake data substitution
-        const formData: Record<string, string> = {};
-        FIELDS.forEach((f) => {
-          const val = (values[f.key] || '').trim();
-          if (val) formData[f.label] = val;
-        });
-        submitApplicantForm(formData);
+      // Build the backend payload from the typed values.
+      const payload: OnboardingPayload = {
+        name: (values.name || '').trim(),
+        cnic: (values.idNum || '').trim(),
+        city: (values.city || '').trim() || undefined,
+        address: (values.address || '').trim() || undefined,
+        employment_type: (values.employment || '').trim(),
+        business_type: (values.businessType || '').trim() || undefined,
+        monthly_income: parseAmount(values.income),
+        account_purpose: (values.intent || '').trim(),
+        expected_monthly_transactions: parseAmount(values.behavior),
+      };
+      submitApplicant(payload).then((res) => {
         setIsSubmitting(false);
-        router.replace('/applicant-status');
-      }, 1200);
+        if (res.error) {
+          Alert.alert('Submission failed', res.error);
+          return;
+        }
+        router.replace({
+          pathname: '/applicant-status',
+          params: res.applicationId ? { app_id: res.applicationId } : {},
+        });
+      });
     }
   };
 
@@ -177,7 +190,7 @@ export default function ApplicantFormScreen() {
           onChangeText={(t) => setValue(field.key, t)}
           keyboardType={field.keyboardType}
           accessibilityLabel={field.label}
-          autoCapitalize={field.keyboardType === 'email-address' ? 'none' : 'words'}
+          autoCapitalize={(field.keyboardType === 'number-pad' || field.keyboardType === 'email-address') ? 'none' : 'words'}
         />
         {err && (
           <Text style={[styles.errorText, { color: colors.errorRed, fontFamily: colors.bodyFont }]}>
@@ -402,7 +415,7 @@ export default function ApplicantFormScreen() {
           accessibilityRole="button"
         >
           <Text style={[styles.laterText, { color: colors.text, fontFamily: colors.bodyFontBold }]}>
-            I'll do this later
+            {'I\u2019ll do this later'}
           </Text>
         </TouchableOpacity>
       </ScrollView>

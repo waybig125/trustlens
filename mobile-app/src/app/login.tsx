@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Shield, Lock, Mail, UserCheck, ShieldCheck } from 'lucide-react-native';
 import { HARDCODED_USERS, useApp } from '../context/AppContext';
+import { api, HealthResponse } from '../api/client';
 import { GlassCard } from '../components/GlassCard';
 
 export default function LoginScreen() {
@@ -20,6 +21,14 @@ export default function LoginScreen() {
   const [email, setEmail] = useState(HARDCODED_USERS.applicant.email);
   const [password, setPassword] = useState(HARDCODED_USERS.applicant.password);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [health, setHealth] = useState<HealthResponse | null>(null);
+  const [healthError, setHealthError] = useState(false);
+
+  useEffect(() => {
+    api.health()
+      .then(setHealth)
+      .catch(() => setHealthError(true));
+  }, []);
 
   const handleRoleTabChange = (role: 'applicant' | 'admin') => {
     setSelectedRole(role);
@@ -168,6 +177,18 @@ export default function LoginScreen() {
           • Admin: admin@trustlens.com / admin123
         </Text>
       </View>
+
+      {/* API Connection Status */}
+      <View style={[styles.apiStatus, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={[styles.apiDot, { backgroundColor: health && !healthError ? colors.riskLow : colors.errorRed }]} />
+        <Text style={[styles.apiText, { color: colors.bodyText, fontFamily: colors.bodyFont }]}>
+          {health && !healthError
+            ? `API connected · ${health.engine} engine${health.demo_mode ? ' · demo mode' : ''}`
+            : healthError
+            ? 'API unreachable'
+            : 'Checking API…'}
+        </Text>
+      </View>
     </ScrollView>
   );
 }
@@ -277,6 +298,24 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   hintText: {
+    fontSize: 12,
+  },
+  apiStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    justifyContent: 'center',
+  },
+  apiDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  apiText: {
     fontSize: 12,
   },
 });
