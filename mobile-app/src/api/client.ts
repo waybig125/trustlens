@@ -111,6 +111,18 @@ export const api = {
   submitOnboarding: (payload: OnboardingPayload) =>
     post<OnboardingResponse>('/api/onboarding', payload),
 
+  // POST /api/ocr            — document scan / auto-fill OCR
+  ocr: (payload: { image_base64?: string; sample_id?: string }) =>
+    post<{
+      name?: string;
+      cnic?: string;
+      city?: string;
+      address?: string;
+      dob?: string;
+      confidence: number;
+      engine: string;
+    }>('/api/ocr', payload),
+
   // GET /api/applications    — officer list / garden grid (summary rows)
   listApplications: () =>
     get<{ count: number; applications: ApplicationSummary[] }>('/api/applications'),
@@ -142,6 +154,60 @@ export const api = {
       `/api/cases/${encodeURIComponent(caseId)}/action`,
       body,
     ),
+
+  // POST /api/documents/analyze — multipart document OCR & cross-check
+  analyzeDocument: async (
+    file: { uri: string; name?: string; type?: string } | Blob | File,
+    documentType: string = 'cnic',
+    applicationId?: string,
+  ) => {
+    const formData = new FormData();
+    if ('uri' in file) {
+      formData.append('file', {
+        uri: file.uri,
+        name: file.name || 'document.jpg',
+        type: file.type || 'image/jpeg',
+      } as any);
+    } else {
+      formData.append('file', file);
+    }
+    formData.append('document_type', documentType);
+    if (applicationId) {
+      formData.append('application_id', applicationId);
+    }
+
+    const res = await fetch(`${BASE_URL}/api/documents/analyze`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (!res.ok) {
+      let msg = `Document analysis failed (HTTP ${res.status})`;
+      try {
+        const body = await res.json();
+        if (body && typeof body.detail === 'string') msg = body.detail;
+      } catch {}
+      throw new ApiError(res.status, msg);
+    }
+    return (await res.json()) as {
+      document_type: string;
+      extracted: {
+        document_type?: string;
+        name?: string | null;
+        cnic?: string | null;
+        father_name?: string | null;
+        date_of_birth?: string | null;
+        address?: string | null;
+        date_of_expiry?: string | null;
+        raw_text?: string | null;
+        engine?: string;
+      };
+      engine?: string;
+      checks?: { field: string; declared: any; extracted: any; verdict: string }[];
+      match_summary?: string;
+      application_status?: string;
+      plant_state?: string;
+    };
+  },
 
   // GET /api/dashboard — volume, risk distribution, EDD queue, before/after
   getDashboard: () => get<DashboardStats>('/api/dashboard'),
